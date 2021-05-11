@@ -32,9 +32,13 @@
 **/vendor/bundle/ruby/*/gems/*/*
 **/vendor/bundle/ruby/*/specifications
 
+# Ignore YARD files
+**/.yardoc
+
 # Unignore vendored gems
 !**/vendor/bundle/ruby/*/gems/*/lib
 !**/vendor/bundle/ruby/*/gems/rubocop-performance-*/config
+!**/vendor/bundle/ruby/*/gems/rubocop-rails-*/config
 !**/vendor/bundle/ruby/*/gems/rubocop-rspec-*/config
 !**/vendor/bundle/ruby/*/gems/rubocop-sorbet-*/config
 
@@ -84,26 +88,30 @@
 
 # Ignore dependencies we don't wish to vendor
 **/vendor/bundle/ruby/*/gems/ast-*/
+**/vendor/bundle/ruby/*/gems/bootsnap-*/
 **/vendor/bundle/ruby/*/gems/bundler-*/
 **/vendor/bundle/ruby/*/gems/byebug-*/
 **/vendor/bundle/ruby/*/gems/coderay-*/
 **/vendor/bundle/ruby/*/gems/colorize-*/
 **/vendor/bundle/ruby/*/gems/commander-*/
 **/vendor/bundle/ruby/*/gems/connection_pool-*/
-**/vendor/bundle/ruby/*/gems/codecov-*/
 **/vendor/bundle/ruby/*/gems/diff-lcs-*/
 **/vendor/bundle/ruby/*/gems/docile-*/
 **/vendor/bundle/ruby/*/gems/domain_name-*/
+**/vendor/bundle/ruby/*/gems/ecma-re-validator-*/
+**/vendor/bundle/ruby/*/gems/hana-*/
 **/vendor/bundle/ruby/*/gems/highline-*/
 **/vendor/bundle/ruby/*/gems/http-cookie-*/
 **/vendor/bundle/ruby/*/gems/hpricot-*/
 **/vendor/bundle/ruby/*/gems/jaro_winkler-*/
 **/vendor/bundle/ruby/*/gems/json-*/
+**/vendor/bundle/ruby/*/gems/json_schemer-*/
 **/vendor/bundle/ruby/*/gems/method_source-*/
 **/vendor/bundle/ruby/*/gems/mime-types-data-*/
 **/vendor/bundle/ruby/*/gems/mime-types-*/
 **/vendor/bundle/ruby/*/gems/mini_portile2-*/
 **/vendor/bundle/ruby/*/gems/minitest-*/
+**/vendor/bundle/ruby/*/gems/msgpack-*/
 **/vendor/bundle/ruby/*/gems/mustache-*/
 **/vendor/bundle/ruby/*/gems/net-http-digest_auth-*/
 **/vendor/bundle/ruby/*/gems/net-http-persistent-*/
@@ -116,6 +124,7 @@
 **/vendor/bundle/ruby/*/gems/powerpack-*/
 **/vendor/bundle/ruby/*/gems/psych-*/
 **/vendor/bundle/ruby/*/gems/pry-*/
+**/vendor/bundle/ruby/*/gems/racc-*/
 **/vendor/bundle/ruby/*/gems/rainbow-*/
 **/vendor/bundle/ruby/*/gems/rdiscount-*/
 **/vendor/bundle/ruby/*/gems/regexp_parser-*/
@@ -146,6 +155,7 @@
 **/vendor/bundle/ruby/*/gems/unf_ext-*/
 **/vendor/bundle/ruby/*/gems/unf-*/
 **/vendor/bundle/ruby/*/gems/unicode-display_width-*/
+**/vendor/bundle/ruby/*/gems/uri_template-*/
 **/vendor/bundle/ruby/*/gems/webrobots-*/
 
 # Ignore `bin` contents (again).
@@ -181,3 +191,6 @@
 
 # Unignore tests' bundle config
 !/Library/Homebrew/test/.bundle/config
+
+# Unignore vscode configuration
+!/.vscode

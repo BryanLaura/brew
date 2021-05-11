@@ -4,7 +4,6 @@
 require "cask/config"
 require "cask/cache"
 
-require "test/support/helper/cask/fake_system_command"
 require "test/support/helper/cask/install_helper"
 require "test/support/helper/cask/never_sudo_system_command"
 
@@ -32,7 +31,7 @@ module Cask
   end
 end
 
-RSpec.shared_context "Homebrew Cask", :needs_macos do
+RSpec.shared_context "Homebrew Cask", :needs_macos do # rubocop:disable RSpec/ContextWording
   around do |example|
     third_party_tap = Tap.fetch("third-party", "tap")
 

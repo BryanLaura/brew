@@ -1,4 +1,4 @@
-# typed: false
+# typed: true
 # frozen_string_literal: true
 
 require "cli/parser"
@@ -8,15 +8,15 @@ module Homebrew
 
   def __cellar_args
     Homebrew::CLI::Parser.new do
-      usage_banner <<~EOS
-        `--cellar` [<formula>]
-
+      description <<~EOS
         Display Homebrew's Cellar path. *Default:* `$(brew --prefix)/Cellar`, or if
         that directory doesn't exist, `$(brew --repository)/Cellar`.
 
         If <formula> is provided, display the location in the Cellar where <formula>
         would be installed, without any sort of versioned directory as the last path.
       EOS
+
+      named_args :formula
     end
   end
 

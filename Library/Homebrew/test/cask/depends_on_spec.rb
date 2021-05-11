@@ -32,7 +32,7 @@ describe "Satisfy Dependencies and Requirements", :cask do
   end
 
   describe "depends_on macos" do
-    context "given an array" do
+    context "with an array" do
       let(:cask) { Cask::CaskLoader.load(cask_path("with-depends-on-macos-array")) }
 
       it "does not raise an error" do
@@ -40,7 +40,7 @@ describe "Satisfy Dependencies and Requirements", :cask do
       end
     end
 
-    context "given a comparison" do
+    context "with a comparison" do
       let(:cask) { Cask::CaskLoader.load(cask_path("with-depends-on-macos-comparison")) }
 
       it "does not raise an error" do
@@ -48,7 +48,7 @@ describe "Satisfy Dependencies and Requirements", :cask do
       end
     end
 
-    context "given a symbol" do
+    context "with a symbol" do
       let(:cask) { Cask::CaskLoader.load(cask_path("with-depends-on-macos-symbol")) }
 
       it "does not raise an error" do
@@ -68,39 +68,6 @@ describe "Satisfy Dependencies and Requirements", :cask do
   describe "depends_on arch" do
     context "when satisfied" do
       let(:cask) { Cask::CaskLoader.load(cask_path("with-depends-on-arch")) }
-
-      it "does not raise an error" do
-        expect { install }.not_to raise_error
-      end
-    end
-  end
-
-  describe "depends_on x11" do
-    before do
-      allow(MacOS::XQuartz).to receive(:installed?).and_return(x11_installed)
-    end
-
-    context "when satisfied" do
-      let(:cask) { Cask::CaskLoader.load(cask_path("with-depends-on-x11")) }
-      let(:x11_installed) { true }
-
-      it "does not raise an error" do
-        expect { install }.not_to raise_error
-      end
-    end
-
-    context "when not satisfied" do
-      let(:cask) { Cask::CaskLoader.load(cask_path("with-depends-on-x11")) }
-      let(:x11_installed) { false }
-
-      it "does not raise an error" do
-        expect { install }.to raise_error Cask::CaskX11DependencyError
-      end
-    end
-
-    context "when depends_on x11: false" do
-      let(:cask) { Cask::CaskLoader.load(cask_path("with-depends-on-x11-false")) }
-      let(:x11_installed) { false }
 
       it "does not raise an error" do
         expect { install }.not_to raise_error

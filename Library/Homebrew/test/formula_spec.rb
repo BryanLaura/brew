@@ -56,7 +56,7 @@ describe Formula do
       expect { klass.new }.to raise_error(ArgumentError)
     end
 
-    context "in a Tap" do
+    context "when in a Tap" do
       let(:tap) { Tap.new("foo", "bar") }
       let(:path) { (tap.path/"Formula/#{name}.rb") }
       let(:full_name) { "#{tap.user}/#{tap.repo}/#{name}" }
@@ -166,8 +166,7 @@ describe Formula do
     end
 
     build_values_with_no_installed_alias = [
-      nil,
-      BuildOptions.new({}, {}),
+      BuildOptions.new(Options.new, f.options),
       Tab.new(source: { "path" => f.path.to_s }),
     ]
     build_values_with_no_installed_alias.each do |build|
@@ -201,7 +200,10 @@ describe Formula do
       url "foo-1.0"
     end
 
-    build_values_with_no_installed_alias = [nil, BuildOptions.new({}, {}), Tab.new(source: { "path" => f.path })]
+    build_values_with_no_installed_alias = [
+      BuildOptions.new(Options.new, f.options),
+      Tab.new(source: { "path" => f.path }),
+    ]
     build_values_with_no_installed_alias.each do |build|
       f.build = build
       expect(f.installed_alias_path).to be nil
@@ -405,7 +407,7 @@ describe Formula do
       f = formula alias_path: alias_path do
         url "foo-1.0"
       end
-      f.build = BuildOptions.new({}, {})
+      f.build = BuildOptions.new(Options.new, f.options)
 
       expect(f.alias_path).to eq(alias_path)
       expect(f.installed_alias_path).to be nil
@@ -695,8 +697,35 @@ describe Formula do
         end
       end
 
-      expect(f.livecheck.url).to eq("https://brew.sh/test")
+      expect(f.livecheck.url).to eq(:homepage)
     end
+  end
+
+  specify "#service" do
+    f = formula do
+      url "https://brew.sh/test-1.0.tbz"
+    end
+
+    f.class.service do
+      run [opt_bin/"beanstalkd"]
+      run_type :immediate
+      error_log_path var/"log/beanstalkd.error.log"
+      log_path var/"log/beanstalkd.log"
+      working_dir var
+      keep_alive true
+    end
+    expect(f.service).not_to eq(nil)
+  end
+
+  specify "service uses simple run" do
+    f = formula do
+      url "https://brew.sh/test-1.0.tbz"
+      service do
+        run opt_bin/"beanstalkd"
+      end
+    end
+
+    expect(f.service).not_to eq(nil)
   end
 
   specify "dependencies" do
@@ -794,21 +823,17 @@ describe Formula do
     f1 = formula "f1" do
       url "f1-1"
 
-      depends_on :java
-      depends_on x11: :recommended
       depends_on xcode: ["1.0", :optional]
     end
     stub_formula_loader(f1)
 
-    java = JavaRequirement.new
-    x11 = X11Requirement.new([:recommended])
     xcode = XcodeRequirement.new(["1.0", :optional])
 
-    expect(Set.new(f1.recursive_requirements)).to eq(Set[java, x11])
+    expect(Set.new(f1.recursive_requirements)).to eq(Set[])
 
-    f1.build = BuildOptions.new(["--with-xcode", "--without-x11"], f1.options)
+    f1.build = BuildOptions.new(Options.create(["--with-xcode"]), f1.options)
 
-    expect(Set.new(f1.recursive_requirements)).to eq(Set[java, xcode])
+    expect(Set.new(f1.recursive_requirements)).to eq(Set[xcode])
 
     f1.build = f1.stable.build
     f2 = formula "f2" do
@@ -817,14 +842,14 @@ describe Formula do
       depends_on "f1"
     end
 
-    expect(Set.new(f2.recursive_requirements)).to eq(Set[java, x11])
-    expect(Set.new(f2.recursive_requirements {})).to eq(Set[java, x11, xcode])
+    expect(Set.new(f2.recursive_requirements)).to eq(Set[])
+    expect(Set.new(f2.recursive_requirements {})).to eq(Set[xcode])
 
     requirements = f2.recursive_requirements do |_dependent, requirement|
-      Requirement.prune if requirement.is_a?(JavaRequirement)
+      Requirement.prune if requirement.is_a?(XcodeRequirement)
     end
 
-    expect(Set.new(requirements)).to eq(Set[x11, xcode])
+    expect(Set.new(requirements)).to eq(Set[])
   end
 
   specify "#to_hash" do
@@ -832,8 +857,7 @@ describe Formula do
       url "foo-1.0"
 
       bottle do
-        cellar(:any)
-        sha256(TEST_SHA256 => Utils::Bottles.tag)
+        sha256 cellar: :any, Utils::Bottles.tag.to_sym => TEST_SHA256
       end
     end
 
@@ -842,6 +866,7 @@ describe Formula do
     expect(h).to be_a(Hash)
     expect(h["name"]).to eq("foo")
     expect(h["full_name"]).to eq("foo")
+    expect(h["tap"]).to eq("homebrew/core")
     expect(h["versions"]["stable"]).to eq("1.0")
     expect(h["versions"]["bottle"]).to be_truthy
   end

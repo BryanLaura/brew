@@ -123,18 +123,21 @@ module Cask
 
       def running_processes(bundle_id)
         system_command!("/bin/launchctl", args: ["list"])
-          .stdout.lines
+          .stdout.lines.drop(1)
           .map { |line| line.chomp.split("\t") }
           .map { |pid, state, id| [pid.to_i, state.to_i, id] }
           .select do |(pid, _, id)|
-            pid.nonzero? && id.match?(/^#{Regexp.escape(bundle_id)}($|\.\d+)/)
+            pid.nonzero? && /\A(?:application\.)?#{Regexp.escape(bundle_id)}(?:\.\d+){0,2}\Z/.match?(id)
           end
       end
 
       sig { returns(String) }
       def automation_access_instructions
-        "Enable Automation Access for “Terminal > System Events” in " \
-        "“System Preferences > Security > Privacy > Automation” if you haven't already."
+        <<~EOS
+          Enable Automation access for "Terminal → System Events" in:
+            System Preferences → Security & Privacy → Privacy → Automation
+          if you haven't already.
+        EOS
       end
 
       # :quit/:signal must come before :kext so the kext will not be in use by a running process
@@ -300,7 +303,7 @@ module Cask
           message = "uninstall script #{executable} does not exist"
           raise CaskError, "#{message}." unless force
 
-          opoo "#{message}, skipping."
+          opoo "#{message}; skipping."
           return
         end
 
@@ -309,7 +312,7 @@ module Cask
       end
 
       def uninstall_pkgutil(*pkgs, command: nil, **_)
-        ohai "Uninstalling packages:"
+        ohai "Uninstalling packages; your password may be necessary:"
         pkgs.each do |regex|
           ::Cask::Pkg.all_matching(regex, command).each do |pkg|
             puts pkg.package_id
@@ -367,8 +370,7 @@ module Cask
 
         resolved_paths = each_resolved_path(:trash, paths).to_a
 
-        ohai "Trashing files:"
-        puts resolved_paths.map(&:first)
+        ohai "Trashing files:", resolved_paths.map(&:first)
         trash_paths(*resolved_paths.flat_map(&:last), **options)
       end
 
@@ -396,7 +398,7 @@ module Cask
           false
         end
 
-        opoo "The following files could not trashed, please do so manually:"
+        opoo "The following files could not be trashed, please do so manually:"
         $stderr.puts untrashable
 
         [trashed, untrashable]

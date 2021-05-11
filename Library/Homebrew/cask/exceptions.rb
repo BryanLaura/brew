@@ -103,6 +103,27 @@ module Cask
     end
   end
 
+  # Error when a cask in a specific tap is not available.
+  #
+  # @api private
+  class TapCaskUnavailableError < CaskUnavailableError
+    extend T::Sig
+
+    attr_reader :tap
+
+    def initialize(tap, token)
+      super("#{tap}/#{token}")
+      @tap = tap
+    end
+
+    sig { returns(String) }
+    def to_s
+      s = super
+      s += "\nPlease tap it and then try again: brew tap #{tap}" unless tap.installed?
+      s
+    end
+  end
+
   # Error when a cask already exists.
   #
   # @api private
@@ -111,7 +132,7 @@ module Cask
 
     sig { returns(String) }
     def to_s
-      %Q(Cask '#{token}' already exists. Run #{Formatter.identifier("brew cask edit #{token}")} to edit it.)
+      %Q(Cask '#{token}' already exists. Run #{Formatter.identifier("brew edit --cask #{token}")} to edit it.)
     end
   end
 
@@ -142,7 +163,7 @@ module Cask
     def to_s
       <<~EOS
         Cask '#{token}' requires XQuartz/X11, which can be installed using Homebrew Cask by running:
-          #{Formatter.identifier("brew cask install xquartz")}
+          #{Formatter.identifier("brew install --cask xquartz")}
 
         or manually, by downloading the package from:
           #{Formatter.url("https://www.xquartz.org/")}

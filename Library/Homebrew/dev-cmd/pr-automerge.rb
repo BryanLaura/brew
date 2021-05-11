@@ -12,9 +12,7 @@ module Homebrew
   sig { returns(CLI::Parser) }
   def pr_automerge_args
     Homebrew::CLI::Parser.new do
-      usage_banner <<~EOS
-        `pr-automerge` [<options>]
-
+      description <<~EOS
         Find pull requests that can be automatically merged using `brew pr-publish`.
       EOS
       flag   "--tap=",
@@ -23,7 +21,8 @@ module Homebrew
              description: "Pull requests must have this label."
       comma_array "--without-labels",
                   description: "Pull requests must not have these labels (default: "\
-                               "`do not merge`, `new formula`, `automerge-skip`, `linux-only`)."
+                               "`do not merge`, `new formula`, `automerge-skip`, `linux-only`, "\
+                               "`linux to homebrew-core`)."
       switch "--without-approval",
              description: "Pull requests do not require approval to be merged."
       switch "--publish",
@@ -34,17 +33,23 @@ module Homebrew
       switch "--ignore-failures",
              description: "Include pull requests that have failing status checks."
 
-      max_named 0
+      named_args :none
     end
   end
 
   def pr_automerge
     args = pr_automerge_args.parse
 
-    without_labels = args.without_labels || ["do not merge", "new formula", "automerge-skip", "linux-only"]
+    without_labels = args.without_labels || [
+      "do not merge",
+      "new formula",
+      "automerge-skip",
+      "linux-only",
+      "linux to homebrew-core",
+    ]
     tap = Tap.fetch(args.tap || CoreTap.instance.name)
 
-    query = "is:pr is:open repo:#{tap.full_name}"
+    query = "is:pr is:open repo:#{tap.full_name} draft:false"
     query += args.ignore_failures? ? " -status:pending" : " status:success"
     query += " review:approved" unless args.without_approval?
     query += " label:\"#{args.with_label}\"" if args.with_label

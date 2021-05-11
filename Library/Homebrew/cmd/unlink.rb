@@ -1,4 +1,4 @@
-# typed: false
+# typed: true
 # frozen_string_literal: true
 
 require "ostruct"
@@ -13,9 +13,7 @@ module Homebrew
   sig { returns(CLI::Parser) }
   def unlink_args
     Homebrew::CLI::Parser.new do
-      usage_banner <<~EOS
-        `unlink` [<options>] <formula>
-
+      description <<~EOS
         Remove symlinks for <formula> from Homebrew's prefix. This can be useful
         for temporarily disabling a formula:
         `brew unlink` <formula> `&&` <commands> `&& brew link` <formula>
@@ -24,7 +22,7 @@ module Homebrew
              description: "List files which would be unlinked without actually unlinking or "\
                           "deleting any files."
 
-      min_named :keg
+      named_args :installed_formula, min: 1
     end
   end
 

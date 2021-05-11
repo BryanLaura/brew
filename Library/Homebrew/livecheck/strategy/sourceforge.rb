@@ -21,7 +21,7 @@ module Homebrew
       # pushed out of the feed (especially if it hasn't been updated recently).
       #
       # Usually we address this situation by adding a `livecheck` block to
-      # the formula that checks the page for the relevant directory in the
+      # the formula/cask that checks the page for the relevant directory in the
       # project instead. In this situation, it's necessary to use
       # `strategy :page_match` to prevent the {Sourceforge} stratgy from
       # being used.
@@ -31,10 +31,17 @@ module Homebrew
       #
       # @api public
       class Sourceforge
+        extend T::Sig
+
         NICE_NAME = "SourceForge"
 
         # The `Regexp` used to determine if the strategy applies to the URL.
-        URL_MATCH_REGEX = /(?:sourceforge|sf)\.net/i.freeze
+        URL_MATCH_REGEX = %r{
+          ^https?://(?:[^/]+?\.)*(?:sourceforge|sf)\.net
+          (?:/projects?/(?<project_name>[^/]+)/
+          |/p/(?<project_name>[^/]+)/
+          |(?::/cvsroot)?/(?<project_name>[^/]+))
+        }ix.freeze
 
         # Whether the strategy can be applied to the provided URL.
         #
@@ -50,23 +57,25 @@ module Homebrew
         # @param url [String] the URL of the content to check
         # @param regex [Regexp] a regex used for matching versions in content
         # @return [Hash]
-        def self.find_versions(url, regex = nil)
-          if url.include?("/project")
-            %r{/projects?/(?<project_name>[^/]+)/}i =~ url
-          elsif url.include?(".net/p/")
-            %r{\.net/p/(?<project_name>[^/]+)/}i =~ url
-          else
-            %r{\.net(?::/cvsroot)?/(?<project_name>[^/]+)}i =~ url
-          end
+        sig {
+          params(
+            url:   String,
+            regex: T.nilable(Regexp),
+            cask:  T.nilable(Cask::Cask),
+            block: T.nilable(T.proc.params(arg0: String).returns(T.any(T::Array[String], String))),
+          ).returns(T::Hash[Symbol, T.untyped])
+        }
+        def self.find_versions(url, regex, cask: nil, &block)
+          match = url.match(URL_MATCH_REGEX)
 
-          page_url = "https://sourceforge.net/projects/#{project_name}/rss"
+          page_url = "https://sourceforge.net/projects/#{match[:project_name]}/rss"
 
           # It may be possible to improve the default regex but there's quite a
           # bit of variation between projects and it can be challenging to
           # create something that works for most URLs.
-          regex ||= %r{url=.*?/#{Regexp.escape(project_name)}/files/.*?[-_/](\d+(?:[-.]\d+)+)[-_/%.]}i
+          regex ||= %r{url=.*?/#{Regexp.escape(match[:project_name])}/files/.*?[-_/](\d+(?:[-.]\d+)+)[-_/%.]}i
 
-          Homebrew::Livecheck::Strategy::PageMatch.find_versions(page_url, regex)
+          PageMatch.find_versions(page_url, regex, cask: cask, &block)
         end
       end
     end

@@ -12,9 +12,7 @@ module Homebrew
   sig { returns(CLI::Parser) }
   def log_args
     Homebrew::CLI::Parser.new do
-      usage_banner <<~EOS
-        `log` [<options>] [<formula>]
-
+      description <<~EOS
         Show the `git log` for <formula>, or show the log for the Homebrew repository
         if no formula is provided.
       EOS
@@ -30,7 +28,8 @@ module Homebrew
              description: "Print only a specified number of commits."
 
       conflicts "-1", "--max-count"
-      max_named 1
+
+      named_args :formula, max: 1
     end
   end
 
@@ -52,7 +51,7 @@ module Homebrew
 
   def git_log(cd_dir, path = nil, tap = nil, args:)
     cd cd_dir
-    repo = Utils.popen_read("git rev-parse --show-toplevel").chomp
+    repo = Utils.popen_read("git", "rev-parse", "--show-toplevel").chomp
     if tap
       name = tap.to_s
       git_cd = "$(brew --repo #{tap})"
@@ -66,7 +65,7 @@ module Homebrew
     if File.exist? "#{repo}/.git/shallow"
       opoo <<~EOS
         #{name} is a shallow clone so only partial output will be shown.
-        To get a full clone run:
+        To get a full clone, run:
           git -C "#{git_cd}" fetch --unshallow
       EOS
     end

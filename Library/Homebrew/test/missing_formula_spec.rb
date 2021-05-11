@@ -97,7 +97,7 @@ describe Homebrew::MissingFormula do
       let(:show_info) { false }
 
       it { is_expected.to match(/Found a cask named "local-caffeine" instead./) }
-      it { is_expected.to match(/Try\n  brew cask install local-caffeine/) }
+      it { is_expected.to match(/Try\n  brew install --cask local-caffeine/) }
     end
 
     context "with a formula name that is a cask and show_info: true" do
@@ -118,15 +118,15 @@ describe Homebrew::MissingFormula do
   describe "::suggest_command", :cask do
     subject { described_class.suggest_command(name, command) }
 
-    context "brew install" do
+    context "when installing" do
       let(:name) { "local-caffeine" }
       let(:command) { "install" }
 
       it { is_expected.to match(/Found a cask named "local-caffeine" instead./) }
-      it { is_expected.to match(/Try\n  brew cask install local-caffeine/) }
+      it { is_expected.to match(/Try\n  brew install --cask local-caffeine/) }
     end
 
-    context "brew uninstall" do
+    context "when uninstalling" do
       let(:name) { "local-caffeine" }
       let(:command) { "uninstall" }
 
@@ -138,11 +138,11 @@ describe Homebrew::MissingFormula do
         end
 
         it { is_expected.to match(/Found a cask named "local-caffeine" instead./) }
-        it { is_expected.to match(/Try\n  brew cask uninstall local-caffeine/) }
+        it { is_expected.to match(/Try\n  brew uninstall --cask local-caffeine/) }
       end
     end
 
-    context "brew info" do
+    context "when getting info" do
       let(:name) { "local-caffeine" }
       let(:command) { "info" }
 

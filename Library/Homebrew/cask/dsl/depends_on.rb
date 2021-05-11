@@ -12,13 +12,11 @@ module Cask
     # @api private
     class DependsOn < SimpleDelegator
       VALID_KEYS = Set.new([
-                             :formula,
-                             :cask,
-                             :macos,
-                             :arch,
-                             :x11,
-                             :java,
-                           ]).freeze
+        :formula,
+        :cask,
+        :macos,
+        :arch,
+      ]).freeze
 
       VALID_ARCHES = {
         intel:  { type: :intel, bits: 64 },
@@ -27,8 +25,7 @@ module Cask
         arm64:  { type: :arm, bits: 64 },
       }.freeze
 
-      attr_accessor :java
-      attr_reader :arch, :cask, :formula, :macos, :x11
+      attr_reader :arch, :cask, :formula, :macos
 
       def initialize
         super({})
@@ -53,7 +50,7 @@ module Cask
       end
 
       def macos=(*args)
-        raise "Only a single 'depends_on macos:' is allowed." if defined?(@macos)
+        raise "Only a single 'depends_on macos' is allowed." if defined?(@macos)
 
         begin
           @macos = if args.count > 1
@@ -81,12 +78,6 @@ module Cask
         raise "invalid 'depends_on arch' values: #{invalid_arches.inspect}" unless invalid_arches.empty?
 
         @arch.concat(arches.map { |arch| VALID_ARCHES[arch] })
-      end
-
-      def x11=(arg)
-        raise "invalid 'depends_on x11' value: #{arg.inspect}" unless [true, false].include?(arg)
-
-        @x11 = arg
       end
     end
   end

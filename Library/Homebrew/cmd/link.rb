@@ -1,4 +1,4 @@
-# typed: false
+# typed: true
 # frozen_string_literal: true
 
 require "ostruct"
@@ -14,9 +14,7 @@ module Homebrew
   sig { returns(CLI::Parser) }
   def link_args
     Homebrew::CLI::Parser.new do
-      usage_banner <<~EOS
-        `link`, `ln` [<options>] <formula>
-
+      description <<~EOS
         Symlink all of <formula>'s installed files into Homebrew's prefix. This
         is done automatically when you install formulae but can be useful for DIY
         installations.
@@ -29,7 +27,7 @@ module Homebrew
       switch "-f", "--force",
              description: "Allow keg-only formulae to be linked."
 
-      min_named :keg
+      named_args :installed_formula, min: 1
     end
   end
 
@@ -88,7 +86,7 @@ module Homebrew
         end
 
         if !args.force? && (formula.blank? || !formula.keg_only_reason.versioned_formula?)
-          opoo "#{keg.name} is keg-only and must be linked with --force"
+          opoo "#{keg.name} is keg-only and must be linked with `--force`."
           puts_keg_only_path_message(keg)
           next
         end
@@ -106,7 +104,7 @@ module Homebrew
           puts
           raise
         else
-          puts "#{n} symlinks created"
+          puts "#{n} symlinks created."
         end
 
         puts_keg_only_path_message(keg) if keg_only && !Homebrew::EnvConfig.developer?

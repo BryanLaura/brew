@@ -1,4 +1,4 @@
-# typed: false
+# typed: true
 # frozen_string_literal: true
 
 require "readall"
@@ -12,9 +12,7 @@ module Homebrew
   sig { returns(CLI::Parser) }
   def readall_args
     Homebrew::CLI::Parser.new do
-      usage_banner <<~EOS
-        `readall` [<options>] [<tap>]
-
+      description <<~EOS
         Import all items from the specified <tap>, or from all installed taps if none is provided.
         This can be useful for debugging issues across all items when making
         significant changes to `formula.rb`, testing the performance of loading
@@ -24,6 +22,8 @@ module Homebrew
              description: "Verify any alias symlinks in each tap."
       switch "--syntax",
              description: "Syntax-check all of Homebrew's Ruby files (if no `<tap>` is passed)."
+
+      named_args :tap
     end
   end
 
@@ -41,7 +41,7 @@ module Homebrew
     taps = if args.no_named?
       Tap
     else
-      args.named.map { |t| Tap.fetch(t) }
+      args.named.to_installed_taps
     end
     taps.each do |tap|
       Homebrew.failed = true unless Readall.valid_tap?(tap, options)

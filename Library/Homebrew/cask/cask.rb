@@ -46,7 +46,7 @@ module Cask
       @default_config = config || Config.new
 
       self.config = if config_path.exist?
-        Config.from_json(File.read(config_path))
+        Config.from_json(File.read(config_path), ignore_invalid_keys: true)
       else
         @default_config
       end
@@ -162,19 +162,23 @@ module Cask
     end
 
     def eql?(other)
-      token == other.token
+      instance_of?(other.class) && token == other.token
     end
     alias == eql?
 
     def to_h
       {
         "token"          => token,
+        "full_token"     => full_name,
+        "tap"            => tap&.name,
         "name"           => name,
         "desc"           => desc,
         "homepage"       => homepage,
         "url"            => url,
         "appcast"        => appcast,
         "version"        => version,
+        "installed"      => versions.last,
+        "outdated"       => outdated?,
         "sha256"         => sha256,
         "artifacts"      => artifacts.map(&method(:to_h_gsubs)),
         "caveats"        => (to_h_string_gsubs(caveats) unless caveats.empty?),

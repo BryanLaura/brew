@@ -18,12 +18,12 @@ module OS
       # Bump these when a new version is available from the App Store and our
       # CI systems have been updated.
       # This may be a beta version for a beta macOS.
-      sig { returns(String) }
-      def latest_version
-        latest_stable = "12.2"
-        case MacOS.version
-        when /^11\./ then latest_stable
-        when "10.15" then "12.2"
+      sig { params(macos: MacOS::Version).returns(String) }
+      def latest_version(macos: MacOS.version)
+        latest_stable = "12.5"
+        case macos
+        when "11" then latest_stable
+        when "10.15" then "12.4"
         when "10.14" then "11.3.1"
         when "10.13" then "10.1"
         when "10.12" then "9.2"
@@ -45,7 +45,7 @@ module OS
       sig { returns(String) }
       def minimum_version
         case MacOS.version
-        when /^11\./ then "12.2"
+        when "11" then "12.2"
         when "10.15" then "11.0"
         when "10.14" then "10.2"
         when "10.13" then "9.0"
@@ -54,28 +54,33 @@ module OS
         end
       end
 
+      sig { returns(T::Boolean) }
       def below_minimum_version?
         return false unless installed?
 
         version < minimum_version
       end
 
+      sig { returns(T::Boolean) }
       def latest_sdk_version?
-        OS::Mac.version >= OS::Mac.latest_sdk_version
+        OS::Mac.full_version >= OS::Mac.latest_sdk_version
       end
 
+      sig { returns(T::Boolean) }
       def needs_clt_installed?
         return false if latest_sdk_version?
 
         without_clt?
       end
 
+      sig { returns(T::Boolean) }
       def outdated?
         return false unless installed?
 
         version < latest_version
       end
 
+      sig { returns(T::Boolean) }
       def without_clt?
         !MacOS::CLT.installed?
       end
@@ -127,6 +132,19 @@ module OS
 
       def sdk_path(v = nil)
         sdk(v)&.path
+      end
+
+      def installation_instructions
+        if OS::Mac.prerelease?
+          <<~EOS
+            Xcode can be installed from:
+              #{Formatter.url("https://developer.apple.com/download/more/")}
+          EOS
+        else
+          <<~EOS
+            Xcode can be installed from the App Store.
+          EOS
+        end
       end
 
       sig { returns(String) }
@@ -183,25 +201,30 @@ module OS
 
       sig { returns(String) }
       def detect_version_from_clang_version
-        return "dunno" if DevelopmentTools.clang_version.null?
+        version = DevelopmentTools.clang_version
+
+        return "dunno" if version.null?
 
         # This logic provides a fake Xcode version based on the
         # installed CLT version. This is useful as they are packaged
         # simultaneously so workarounds need to apply to both based on their
         # comparable version.
-        case (DevelopmentTools.clang_version.to_f * 10).to_i
-        when 0       then "dunno"
-        when 60      then "6.0"
-        when 61      then "6.1"
-        when 70      then "7.0"
-        when 73      then "7.3"
-        when 80      then "8.0"
-        when 81      then "8.3"
-        when 90      then "9.2"
-        when 91      then "9.4"
-        when 100     then "10.3"
-        when 110     then "11.5"
-        else              "12.0"
+        case version
+        when "6.0.0"  then "6.2"
+        when "6.1.0"  then "6.4"
+        when "7.0.0"  then "7.1"
+        when "7.0.2"  then "7.2.1"
+        when "7.3.0"  then "7.3.1"
+        when "8.0.0"  then "8.2.1"
+        when "8.1.0"  then "8.3.3"
+        when "9.0.0"  then "9.2"
+        when "9.1.0"  then "9.4.1"
+        when "10.0.0" then "10.1"
+        when "10.0.1" then "10.3"
+        when "11.0.0" then "11.3.1"
+        when "11.0.3" then "11.7"
+        when "12.0.0" then "12.4"
+        else               "12.5"
         end
       end
 
@@ -249,6 +272,21 @@ module OS
         sdk(v)&.path
       end
 
+      def installation_instructions
+        if MacOS.version == "10.14"
+          # This is not available from `xcode-select`
+          <<~EOS
+            Install the Command Line Tools for Xcode 11.3.1 from:
+              #{Formatter.url("https://developer.apple.com/download/more/")}
+          EOS
+        else
+          <<~EOS
+            Install the Command Line Tools:
+              xcode-select --install
+          EOS
+        end
+      end
+
       sig { returns(String) }
       def update_instructions
         software_update_location = if MacOS.version >= "10.14"
@@ -261,7 +299,7 @@ module OS
           Update them from Software Update in #{software_update_location} or run:
             softwareupdate --all --install --force
 
-          If that doesn't show you an update run:
+          If that doesn't show you any updates, run:
             sudo rm -rf /Library/Developer/CommandLineTools
             sudo xcode-select --install
 
@@ -275,7 +313,8 @@ module OS
       sig { returns(String) }
       def latest_clang_version
         case MacOS.version
-        when /^11\./, "10.15" then "1200.0.32.27"
+        when "11"    then "1205.0.22.9"
+        when "10.15" then "1200.0.32.29"
         when "10.14" then "1100.0.33.17"
         when "10.13" then "1000.10.44.2"
         when "10.12" then "900.0.39.2"
@@ -291,7 +330,7 @@ module OS
       sig { returns(String) }
       def minimum_version
         case MacOS.version
-        when /^11\./ then "12.0.0"
+        when "11" then "12.0.0"
         when "10.15" then "11.0.0"
         when "10.14" then "10.0.0"
         when "10.13" then "9.0.0"
@@ -315,12 +354,12 @@ module OS
       end
 
       def detect_clang_version
-        version_output = Utils.popen_read("#{PKG_PATH}/usr/bin/clang --version")
+        version_output = Utils.popen_read("#{PKG_PATH}/usr/bin/clang", "--version")
         version_output[/clang-(\d+\.\d+\.\d+(\.\d+)?)/, 1]
       end
 
       def detect_version_from_clang_version
-        detect_clang_version&.sub(/^(\d+)00\./, "\\1.")
+        detect_clang_version&.sub(/^(\d+)0(\d)\./, "\\1.\\2.")
       end
 
       # Version string (a pretty long one) of the CLT package.

@@ -10,16 +10,16 @@ module Cask
     # @api private
     class Container
       VALID_KEYS = Set.new([
-                             :type,
-                             :nested,
-                           ]).freeze
+        :type,
+        :nested,
+      ]).freeze
 
       attr_accessor(*VALID_KEYS, :pairs)
 
       def initialize(pairs = {})
         @pairs = pairs
         pairs.each do |key, value|
-          raise "invalid container key: '#{key.inspect}'" unless VALID_KEYS.include?(key)
+          raise "invalid container key: #{key.inspect}" unless VALID_KEYS.include?(key)
 
           send(:"#{key}=", value)
         end

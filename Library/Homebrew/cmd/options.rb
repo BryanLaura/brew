@@ -3,8 +3,6 @@
 
 require "formula"
 require "options"
-require "cli/parser"
-require "commands"
 
 module Homebrew
   extend T::Sig
@@ -14,9 +12,7 @@ module Homebrew
   sig { returns(CLI::Parser) }
   def options_args
     Homebrew::CLI::Parser.new do
-      usage_banner <<~EOS
-        `options` [<options>] [<formula>]
-
+      description <<~EOS
         Show install options specific to <formula>.
       EOS
       switch "--compact",
@@ -29,6 +25,8 @@ module Homebrew
              description: "Show options for the specified <command>."
 
       conflicts "--installed", "--all", "--command"
+
+      named_args :formula
     end
   end
 
@@ -39,16 +37,10 @@ module Homebrew
       puts_options Formula.to_a.sort, args: args
     elsif args.installed?
       puts_options Formula.installed.sort, args: args
-    elsif !args.command.nil?
-      path = Commands.path(args.command)
-      odie "Unknown command: #{args.command}" unless path
-      cmd_options = if cmd_parser = CLI::Parser.from_cmd_path(path)
-        cmd_parser.processed_options.map do |short, long, _, desc|
-          [long || short, desc]
-        end
-      else
-        cmd_comment_options(path)
-      end
+    elsif args.command.present?
+      cmd_options = Commands.command_options(args.command)
+      odie "Unknown command: #{args.command}" if cmd_options.nil?
+
       if args.compact?
         puts cmd_options.sort.map(&:first) * " "
       else
@@ -60,20 +52,6 @@ module Homebrew
     else
       puts_options args.named.to_formulae, args: args
     end
-  end
-
-  def cmd_comment_options(cmd_path)
-    options = []
-    comment_lines = cmd_path.read.lines.grep(/^#:/)
-    return options if comment_lines.empty?
-
-    # skip the comment's initial usage summary lines
-    comment_lines.slice(2..-1).each do |line|
-      if / (?<option>-[-\w]+) +(?<desc>.*)$/ =~ line
-        options << [option, desc]
-      end
-    end
-    options
   end
 
   def puts_options(formulae, args:)

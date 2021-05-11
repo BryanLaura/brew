@@ -11,6 +11,16 @@ module Hardware
     INTEL_64BIT_ARCHS = [:x86_64].freeze
     PPC_32BIT_ARCHS   = [:ppc, :ppc32, :ppc7400, :ppc7450, :ppc970].freeze
     PPC_64BIT_ARCHS   = [:ppc64, :ppc64le, :ppc970].freeze
+    ARM_64BIT_ARCHS   = [:arm64].freeze
+    ALL_ARCHS = [
+      *INTEL_32BIT_ARCHS,
+      *INTEL_64BIT_ARCHS,
+      *PPC_32BIT_ARCHS,
+      *PPC_64BIT_ARCHS,
+      *ARM_64BIT_ARCHS,
+    ].freeze
+
+    INTEL_64BIT_OLDEST_CPU = :core2
 
     class << self
       extend T::Sig
@@ -18,8 +28,9 @@ module Hardware
       def optimization_flags
         @optimization_flags ||= {
           native:             arch_flag("native"),
-          nehalem:            "-march=nehalem",
+          ivybridge:          "-march=ivybridge",
           sandybridge:        "-march=sandybridge",
+          nehalem:            "-march=nehalem",
           core2:              "-march=core2",
           core:               "-march=prescott",
           arm_vortex_tempest: "",
@@ -71,7 +82,7 @@ module Hardware
       end
 
       def universal_archs
-        [arch].extend ArchitectureListExtension
+        odisabled "Hardware::CPU.universal_archs"
       end
 
       sig { returns(Symbol) }
@@ -187,7 +198,7 @@ module Hardware
     def oldest_cpu(_version = nil)
       if Hardware::CPU.intel?
         if Hardware::CPU.is_64_bit?
-          :core2
+          Hardware::CPU::INTEL_64BIT_OLDEST_CPU
         else
           :core
         end

@@ -46,6 +46,11 @@ end
 begin
   trap("INT", std_trap) # restore default CTRL-C handler
 
+  if ENV["CI"]
+    $stdout.sync = true
+    $stderr.sync = true
+  end
+
   empty_argv = ARGV.empty?
   help_flag_list = %w[-h --help --usage -?]
   help_flag = !ENV["HOMEBREW_HELP"].nil?
@@ -59,7 +64,7 @@ begin
       # Command-style help: `help <cmd>` is fine, but `<cmd> help` is not.
       help_flag = true
       help_cmd_index = i
-    elsif !cmd && !help_flag_list.include?(arg)
+    elsif !cmd && help_flag_list.exclude?(arg)
       cmd = ARGV.delete_at(i)
       cmd = Commands::HOMEBREW_INTERNAL_COMMAND_ALIASES.fetch(cmd, cmd)
     end
@@ -67,6 +72,7 @@ begin
 
   ARGV.delete_at(help_cmd_index) if help_cmd_index
 
+  require "cli/parser"
   args = Homebrew::CLI::Parser.new.parse(ARGV.dup.freeze, ignore_invalid_options: true)
   Context.current = args.context
 
@@ -80,16 +86,14 @@ begin
   ENV["PATH"] = path
 
   require "commands"
+  require "settings"
 
   if cmd
     internal_cmd = Commands.valid_internal_cmd?(cmd)
     internal_cmd ||= begin
       internal_dev_cmd = Commands.valid_internal_dev_cmd?(cmd)
       if internal_dev_cmd && !Homebrew::EnvConfig.developer?
-        if (HOMEBREW_REPOSITORY/".git/config").exist?
-          system "git", "config", "--file=#{HOMEBREW_REPOSITORY}/.git/config",
-                 "--replace-all", "homebrew.devcmdrun", "true"
-        end
+        Homebrew::Settings.write "devcmdrun", true
         ENV["HOMEBREW_DEV_CMD_RUN"] = "1"
       end
       internal_dev_cmd
@@ -108,8 +112,7 @@ begin
   # - a help flag is passed AND a command is matched
   # - a help flag is passed AND there is no command specified
   # - no arguments are passed
-  # - if cmd is Cask, let Cask handle the help command instead
-  if (empty_argv || help_flag) && cmd != "cask"
+  if empty_argv || help_flag
     require "help"
     Homebrew::Help.help cmd, remaining_args: args.remaining, empty_argv: empty_argv
     # `Homebrew::Help.help` never returns, except for unknown commands.
@@ -129,7 +132,9 @@ begin
     possible_tap = OFFICIAL_CMD_TAPS.find { |_, cmds| cmds.include?(cmd) }
     possible_tap = Tap.fetch(possible_tap.first) if possible_tap
 
-    odie "Unknown command: #{cmd}" if !possible_tap || possible_tap.installed?
+    if !possible_tap || possible_tap.installed? || Tap.untapped_official_taps.include?(possible_tap.name)
+      odie "Unknown command: #{cmd}"
+    end
 
     # Unset HOMEBREW_HELP to avoid confusing the tap
     with_env HOMEBREW_HELP: nil do

@@ -16,46 +16,42 @@ class Keg
     end
   end
 
-  undef relocate_dynamic_linkage, detect_cxx_stdlibs
+  undef relocate_dynamic_linkage
 
   def relocate_dynamic_linkage(relocation)
+    old_prefix, new_prefix = relocation.replacement_pair_for(:prefix)
+    old_cellar, new_cellar = relocation.replacement_pair_for(:cellar)
+
     mach_o_files.each do |file|
       file.ensure_writable do
         if file.dylib?
-          id = dylib_id_for(file).sub(relocation.old_prefix, relocation.new_prefix)
+          id = dylib_id_for(file).sub(old_prefix, new_prefix)
           change_dylib_id(id, file)
         end
 
         each_install_name_for(file) do |old_name|
-          if old_name.start_with? relocation.old_cellar
-            new_name = old_name.sub(relocation.old_cellar, relocation.new_cellar)
-          elsif old_name.start_with? relocation.old_prefix
-            new_name = old_name.sub(relocation.old_prefix, relocation.new_prefix)
+          if old_name.start_with? old_cellar
+            new_name = old_name.sub(old_cellar, new_cellar)
+          elsif old_name.start_with? old_prefix
+            new_name = old_name.sub(old_prefix, new_prefix)
           end
 
           change_install_name(old_name, new_name, file) if new_name
         end
+
+        if ENV["HOMEBREW_RELOCATE_RPATHS"]
+          each_rpath_for(file) do |old_name|
+            new_name = if old_name.start_with? old_cellar
+              old_name.sub(old_cellar, new_cellar)
+            elsif old_name.start_with? old_prefix
+              old_name.sub(old_prefix, new_prefix)
+            end
+
+            change_rpath(old_name, new_name, file) if new_name
+          end
+        end
       end
     end
-  end
-
-  # Detects the C++ dynamic libraries in-place, scanning the dynamic links
-  # of the files within the keg.
-  # Note that this doesn't attempt to distinguish between libstdc++ versions,
-  # for instance between Apple libstdc++ and GNU libstdc++.
-  def detect_cxx_stdlibs(options = {})
-    skip_executables = options.fetch(:skip_executables, false)
-    results = Set.new
-
-    mach_o_files.each do |file|
-      next if file.mach_o_executable? && skip_executables
-
-      dylibs = file.dynamically_linked_libraries
-      results << :libcxx unless dylibs.grep(/libc\+\+.+\.dylib/).empty?
-      results << :libstdcxx unless dylibs.grep(/libstdc\+\+.+\.dylib/).empty?
-    end
-
-    results.to_a
   end
 
   def fix_dynamic_linkage
@@ -130,6 +126,12 @@ class Keg
     dylibs.each(&block)
   end
 
+  def each_rpath_for(file, &block)
+    rpaths = file.rpaths
+                 .reject { |fn| fn =~ /^@(loader|executable)_path/ }
+    rpaths.each(&block)
+  end
+
   def dylib_id_for(file)
     # The new dylib ID should have the same basename as the old dylib ID, not
     # the basename of the file itself.
@@ -162,7 +164,7 @@ class Keg
     mach_o_files = []
     path.find do |pn|
       next if pn.symlink? || pn.directory?
-      next unless pn.dylib? || pn.mach_o_bundle? || pn.mach_o_executable?
+      next if !pn.dylib? && !pn.mach_o_bundle? && !pn.mach_o_executable?
       # if we've already processed a file, ignore its hardlinks (which have the same dev ID and inode)
       # this prevents relocations from being performed on a binary more than once
       next unless hardlinks.add? [pn.stat.dev, pn.stat.ino]
@@ -171,6 +173,25 @@ class Keg
     end
 
     mach_o_files
+  end
+
+  def prepare_relocation_to_locations
+    relocation = generic_prepare_relocation_to_locations
+
+    brewed_perl = runtime_dependencies&.any? { |dep| dep["full_name"] == "perl" && dep["declared_directly"] }
+    perl_path = if brewed_perl
+      "#{HOMEBREW_PREFIX}/opt/perl/bin/perl"
+    else
+      perl_version = if tab["built_on"].present?
+        tab["built_on"]["preferred_perl"]
+      else
+        MacOS.preferred_perl_version
+      end
+      "/usr/bin/perl#{perl_version}"
+    end
+    relocation.add_replacement_pair(:perl, PERL_PLACEHOLDER, perl_path)
+
+    relocation
   end
 
   def recursive_fgrep_args

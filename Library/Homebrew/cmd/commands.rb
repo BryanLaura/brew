@@ -11,9 +11,7 @@ module Homebrew
   sig { returns(CLI::Parser) }
   def commands_args
     Homebrew::CLI::Parser.new do
-      usage_banner <<~EOS
-        `commands` [<options>]
-
+      description <<~EOS
         Show lists of built-in and external commands.
       EOS
       switch "-q", "--quiet",
@@ -22,7 +20,7 @@ module Homebrew
              depends_on:  "--quiet",
              description: "Include aliases of internal commands."
 
-      max_named 0
+      named_args :none
     end
   end
 
@@ -40,8 +38,6 @@ module Homebrew
       "Built-in commands"           => Commands.internal_commands,
       "Built-in developer commands" => Commands.internal_developer_commands,
       "External commands"           => Commands.external_commands,
-      "Cask commands"               => Commands.cask_internal_commands,
-      "External cask commands"      => Commands.cask_external_commands,
     }.each do |title, commands|
       next if commands.blank?
 

@@ -16,7 +16,7 @@ module Context
   end
 
   def self.current
-    if current_context = Thread.current[:context]
+    if (current_context = Thread.current[:context])
       return current_context
     end
 
@@ -34,15 +34,15 @@ module Context
     end
 
     def debug?
-      @debug
+      @debug == true
     end
 
     def quiet?
-      @quiet
+      @quiet == true
     end
 
     def verbose?
-      @verbose
+      @verbose == true
     end
   end
 

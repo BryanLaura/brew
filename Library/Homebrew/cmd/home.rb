@@ -1,7 +1,8 @@
-# typed: false
+# typed: true
 # frozen_string_literal: true
 
 require "cli/parser"
+require "formula"
 
 module Homebrew
   extend T::Sig
@@ -11,15 +12,22 @@ module Homebrew
   sig { returns(CLI::Parser) }
   def home_args
     Homebrew::CLI::Parser.new do
-      usage_banner <<~EOS
-        `home` [<formula>]
-
-        Open <formula>'s homepage in a browser, or open Homebrew's own homepage
-        if no formula is provided.
+      description <<~EOS
+        Open a <formula> or <cask>'s homepage in a browser, or open
+        Homebrew's own homepage if no argument is provided.
       EOS
+      switch "--formula", "--formulae",
+             description: "Treat all named arguments as formulae."
+      switch "--cask", "--casks",
+             description: "Treat all named arguments as casks."
+
+      conflicts "--formula", "--cask"
+
+      named_args [:formula, :cask]
     end
   end
 
+  sig { void }
   def home
     args = home_args.parse
 
@@ -33,7 +41,7 @@ module Homebrew
       formula_or_cask.homepage
     end
 
-    exec_browser(*homepages)
+    exec_browser(*T.unsafe(homepages))
   end
 
   def name_of(formula_or_cask)

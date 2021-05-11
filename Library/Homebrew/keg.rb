@@ -136,64 +136,12 @@ class Keg
   PYC_EXTENSIONS = %w[.pyc .pyo].freeze
   LIBTOOL_EXTENSIONS = %w[.la .lai].freeze
 
-  # Given an array of kegs, this method will try to find some other kegs
-  # that depend on them. If it does, it returns:
-  #
-  # - some kegs in the passed array that have installed dependents
-  # - some installed dependents of those kegs.
-  #
-  # If it doesn't, it returns nil.
-  #
-  # Note that nil will be returned if the only installed dependents
-  # in the passed kegs are other kegs in the array.
-  #
-  # For efficiency, we don't bother trying to get complete data.
-  def self.find_some_installed_dependents(kegs)
-    keg_names = kegs.select(&:optlinked?).map(&:name)
-    keg_formulae = []
-    kegs_by_source = kegs.group_by do |keg|
-      # First, attempt to resolve the keg to a formula
-      # to get up-to-date name and tap information.
-      f = keg.to_formula
-      keg_formulae << f
-      [f.name, f.tap]
-    rescue
-      # If the formula for the keg can't be found,
-      # fall back to the information in the tab.
-      [keg.name, keg.tab.tap]
-    end
-
-    all_required_kegs = Set.new
-    all_dependents = []
-
-    # Don't include dependencies of kegs that were in the given array.
-    formulae_to_check = Formula.installed - keg_formulae
-
-    formulae_to_check.each do |dependent|
-      required = dependent.missing_dependencies(hide: keg_names)
-      required_kegs = required.map do |f|
-        f_kegs = kegs_by_source[[f.name, f.tap]]
-        next unless f_kegs
-
-        f_kegs.max_by(&:version)
-      end.compact
-
-      next if required_kegs.empty?
-
-      all_required_kegs += required_kegs
-      all_dependents << dependent.to_s
-    end
-
-    return if all_required_kegs.empty?
-    return if all_dependents.empty?
-
-    [all_required_kegs.to_a, all_dependents.sort]
-  end
-
   # @param path if this is a file in a keg, returns the containing {Keg} object.
   def self.for(path)
     original_path = path
-    if original_path.exist? && (path = original_path.realpath)
+    raise Errno::ENOENT, original_path.to_s unless original_path.exist?
+
+    if (path = original_path.realpath)
       until path.root?
         return Keg.new(path) if path.parent.parent == HOMEBREW_CELLAR.realpath
 
@@ -299,28 +247,16 @@ class Keg
       # versioned aliases are handled below
       next if a.match?(/.+@./)
 
-      alias_opt_symlink = opt/a
-      if alias_opt_symlink.symlink? && alias_opt_symlink.exist?
-        alias_opt_symlink.delete if alias_opt_symlink.realpath == opt_record.realpath
-      elsif alias_opt_symlink.symlink? || alias_opt_symlink.exist?
-        alias_opt_symlink.delete
-      end
-
-      alias_linkedkegs_symlink = linkedkegs/a
-      alias_linkedkegs_symlink.delete if alias_linkedkegs_symlink.symlink? || alias_linkedkegs_symlink.exist?
+      remove_alias_symlink(opt/a, opt_record)
+      remove_alias_symlink(linkedkegs/a, linked_keg_record)
     end
 
     Pathname.glob("#{opt_record}@*").each do |a|
       a = a.basename.to_s
       next if aliases.include?(a)
 
-      alias_opt_symlink = opt/a
-      if alias_opt_symlink.symlink? && alias_opt_symlink.exist? && rack == alias_opt_symlink.realpath.parent
-        alias_opt_symlink.delete
-      end
-
-      alias_linkedkegs_symlink = linkedkegs/a
-      alias_linkedkegs_symlink.delete if alias_linkedkegs_symlink.symlink? || alias_linkedkegs_symlink.exist?
+      remove_alias_symlink(opt/a, rack)
+      remove_alias_symlink(linkedkegs/a, rack)
     end
   end
 
@@ -329,7 +265,7 @@ class Keg
     opt_record.parent.rmdir_if_possible
   end
 
-  def uninstall
+  def uninstall(raise_failures: false)
     CacheStoreDatabase.use(:linkage) do |db|
       break unless db.created?
 
@@ -339,17 +275,19 @@ class Keg
     path.rmtree
     path.parent.rmdir_if_possible
     remove_opt_record if optlinked?
+    remove_linked_keg_record if linked?
     remove_old_aliases
     remove_oldname_opt_record
   rescue Errno::EACCES, Errno::ENOTEMPTY
+    raise if raise_failures
+
     odie <<~EOS
       Could not remove #{name} keg! Do so manually:
         sudo rm -rf #{path}
     EOS
   end
 
-  # TODO: refactor to use keyword arguments.
-  def unlink(**options)
+  def unlink(verbose: false, dry_run: false)
     ObserverPathnameExtension.reset_counts!
 
     dirs = []
@@ -367,7 +305,7 @@ class Keg
         next unless dst.symlink?
         next if src != dst.resolved_path
 
-        if options[:dry_run]
+        if dry_run
           puts dst
           Find.prune if src.directory?
           next
@@ -375,12 +313,12 @@ class Keg
 
         dst.uninstall_info if dst.to_s.match?(INFOFILE_RX)
         dst.unlink
-        remove_old_aliases
         Find.prune if src.directory?
       end
     end
 
-    unless options[:dry_run]
+    unless dry_run
+      remove_old_aliases
       remove_linked_keg_record if linked?
       dirs.reverse_each(&:rmdir_if_possible)
     end
@@ -465,22 +403,21 @@ class Keg
     end
   end
 
-  # TODO: refactor to use keyword arguments.
-  def link(**options)
+  def link(verbose: false, dry_run: false, overwrite: false)
     raise AlreadyLinkedError, self if linked_keg_record.directory?
 
     ObserverPathnameExtension.reset_counts!
 
-    optlink(**options) unless options[:dry_run]
+    optlink(verbose: verbose, dry_run: dry_run, overwrite: overwrite) unless dry_run
 
     # yeah indeed, you have to force anything you need in the main tree into
     # these dirs REMEMBER that *NOT* everything needs to be in the main tree
-    link_dir("etc", **options) { :mkpath }
-    link_dir("bin", **options) { :skip_dir }
-    link_dir("sbin", **options) { :skip_dir }
-    link_dir("include", **options) { :link }
+    link_dir("etc", verbose: verbose, dry_run: dry_run, overwrite: overwrite) { :mkpath }
+    link_dir("bin", verbose: verbose, dry_run: dry_run, overwrite: overwrite) { :skip_dir }
+    link_dir("sbin", verbose: verbose, dry_run: dry_run, overwrite: overwrite) { :skip_dir }
+    link_dir("include", verbose: verbose, dry_run: dry_run, overwrite: overwrite) { :link }
 
-    link_dir("share", **options) do |relative_path|
+    link_dir("share", verbose: verbose, dry_run: dry_run, overwrite: overwrite) do |relative_path|
       case relative_path.to_s
       when INFOFILE_RX then :info
       when "locale/locale.alias",
@@ -499,7 +436,7 @@ class Keg
       end
     end
 
-    link_dir("lib", **options) do |relative_path|
+    link_dir("lib", verbose: verbose, dry_run: dry_run, overwrite: overwrite) do |relative_path|
       case relative_path.to_s
       when "charset.alias"
         :skip_file
@@ -525,7 +462,7 @@ class Keg
       end
     end
 
-    link_dir("Frameworks", **options) do |relative_path|
+    link_dir("Frameworks", verbose: verbose, dry_run: dry_run, overwrite: overwrite) do |relative_path|
       # Frameworks contain symlinks pointing into a subdir, so we have to use
       # the :link strategy. However, for Foo.framework and
       # Foo.framework/Versions we have to use :mkpath so that multiple formulae
@@ -536,10 +473,11 @@ class Keg
         :link
       end
     end
-
-    make_relative_symlink(linked_keg_record, path, **options) unless options[:dry_run]
+    unless dry_run
+      make_relative_symlink(linked_keg_record, path, verbose: verbose, dry_run: dry_run, overwrite: overwrite)
+    end
   rescue LinkError
-    unlink(verbose: options[:verbose])
+    unlink(verbose: verbose)
     raise
   else
     ObserverPathnameExtension.n
@@ -567,19 +505,19 @@ class Keg
     tab.aliases || []
   end
 
-  def optlink(**options)
+  def optlink(verbose: false, dry_run: false, overwrite: false)
     opt_record.delete if opt_record.symlink? || opt_record.exist?
-    make_relative_symlink(opt_record, path, **options)
+    make_relative_symlink(opt_record, path, verbose: verbose, dry_run: dry_run, overwrite: overwrite)
     aliases.each do |a|
       alias_opt_record = opt_record.parent/a
       alias_opt_record.delete if alias_opt_record.symlink? || alias_opt_record.exist?
-      make_relative_symlink(alias_opt_record, path, **options)
+      make_relative_symlink(alias_opt_record, path, verbose: verbose, dry_run: dry_run, overwrite: overwrite)
     end
 
     return unless oldname_opt_record
 
     oldname_opt_record.delete
-    make_relative_symlink(oldname_opt_record, path, **options)
+    make_relative_symlink(oldname_opt_record, path, verbose: verbose, dry_run: dry_run, overwrite: overwrite)
   end
 
   def delete_pyc_files!
@@ -589,7 +527,7 @@ class Keg
 
   private
 
-  def resolve_any_conflicts(dst, **options)
+  def resolve_any_conflicts(dst, dry_run: false, verbose: false, overwrite: false)
     return unless dst.symlink?
 
     src = dst.resolved_path
@@ -602,7 +540,7 @@ class Keg
       stat = src.lstat
     rescue Errno::ENOENT
       # dst is a broken symlink, so remove it.
-      dst.unlink unless options[:dry_run]
+      dst.unlink unless dry_run
       return
     end
 
@@ -611,23 +549,23 @@ class Keg
     begin
       keg = Keg.for(src)
     rescue NotAKegError
-      puts "Won't resolve conflicts for symlink #{dst} as it doesn't resolve into the Cellar" if options[:verbose]
+      puts "Won't resolve conflicts for symlink #{dst} as it doesn't resolve into the Cellar." if verbose
       return
     end
 
-    dst.unlink unless options[:dry_run]
-    keg.link_dir(src, **options) { :mkpath }
+    dst.unlink unless dry_run
+    keg.link_dir(src, dry_run: false, verbose: false, overwrite: false) { :mkpath }
     true
   end
 
-  def make_relative_symlink(dst, src, **options)
+  def make_relative_symlink(dst, src, verbose: false, dry_run: false, overwrite: false)
     if dst.symlink? && src == dst.resolved_path
-      puts "Skipping; link already exists: #{dst}" if options[:verbose]
+      puts "Skipping; link already exists: #{dst}" if verbose
       return
     end
 
     # cf. git-clean -n: list files to delete, don't really link or delete
-    if options[:dry_run] && options[:overwrite]
+    if dry_run && overwrite
       if dst.symlink?
         puts "#{dst} -> #{dst.resolved_path}"
       elsif dst.exist?
@@ -637,12 +575,12 @@ class Keg
     end
 
     # list all link targets
-    if options[:dry_run]
+    if dry_run
       puts dst
       return
     end
 
-    dst.delete if options[:overwrite] && (dst.exist? || dst.symlink?)
+    dst.delete if overwrite && (dst.exist? || dst.symlink?)
     dst.make_relative_symlink(src)
   rescue Errno::EEXIST => e
     raise ConflictError.new(self, src.relative_path_from(path), dst, e) if dst.exist?
@@ -657,10 +595,18 @@ class Keg
     raise LinkError.new(self, src.relative_path_from(path), dst, e)
   end
 
+  def remove_alias_symlink(alias_symlink, alias_match_path)
+    if alias_symlink.symlink? && alias_symlink.exist?
+      alias_symlink.delete if alias_match_path.exist? && alias_symlink.realpath == alias_match_path.realpath
+    elsif alias_symlink.symlink? || alias_symlink.exist?
+      alias_symlink.delete
+    end
+  end
+
   protected
 
   # symlinks the contents of path+relative_dir recursively into #{HOMEBREW_PREFIX}/relative_dir
-  def link_dir(relative_dir, **options)
+  def link_dir(relative_dir, verbose: false, dry_run: false, overwrite: false)
     root = path/relative_dir
     return unless root.exist?
 
@@ -684,10 +630,10 @@ class Keg
         when :info
           next if File.basename(src) == "dir" # skip historical local 'dir' files
 
-          make_relative_symlink dst, src, **options
+          make_relative_symlink dst, src, verbose: verbose, dry_run: dry_run, overwrite: overwrite
           dst.install_info
         else
-          make_relative_symlink dst, src, **options
+          make_relative_symlink dst, src, verbose: verbose, dry_run: dry_run, overwrite: overwrite
         end
       elsif src.directory?
         # if the dst dir already exists, then great! walk the rest of the tree tho
@@ -701,10 +647,10 @@ class Keg
         when :skip_dir
           Find.prune
         when :mkpath
-          dst.mkpath unless resolve_any_conflicts(dst, **options)
+          dst.mkpath unless resolve_any_conflicts(dst, verbose: verbose, dry_run: dry_run, overwrite: overwrite)
         else
-          unless resolve_any_conflicts(dst, **options)
-            make_relative_symlink dst, src, **options
+          unless resolve_any_conflicts(dst, verbose: verbose, dry_run: dry_run, overwrite: overwrite)
+            make_relative_symlink dst, src, verbose: verbose, dry_run: dry_run, overwrite: overwrite
             Find.prune
           end
         end

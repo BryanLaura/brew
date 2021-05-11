@@ -1,18 +1,12 @@
 # typed: false
 # frozen_string_literal: true
 
-require_relative "shared_examples/requires_cask_token"
-require_relative "shared_examples/invalid_option"
-
 describe Cask::Cmd::Install, :cask do
-  it_behaves_like "a command that requires a Cask token"
-  it_behaves_like "a command that handles invalid options"
-
   it "displays the installation progress" do
     output = Regexp.new <<~EOS
       ==> Downloading file:.*caffeine.zip
       ==> Installing Cask local-caffeine
-      ==> Moving App 'Caffeine.app' to '.*Caffeine.app'.
+      ==> Moving App 'Caffeine.app' to '.*Caffeine.app'
       .*local-caffeine was successfully installed!
     EOS
 
@@ -118,7 +112,7 @@ describe Cask::Cmd::Install, :cask do
     }.to raise_error(
       Cask::CaskUnavailableError,
       "Cask 'localcaffeine' is unavailable: No Cask with this name exists. "\
-      "Did you mean “local-caffeine”?",
+      "Did you mean 'local-caffeine'?",
     )
   end
 

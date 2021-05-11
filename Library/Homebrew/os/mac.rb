@@ -25,13 +25,13 @@ module OS
     # This can be compared to numerics, strings, or symbols
     # using the standard Ruby Comparable methods.
     def version
-      @version ||= Version.new(full_version.to_s[/^\d+\.\d+/])
+      @version ||= full_version.strip_patch
     end
 
     # This can be compared to numerics, strings, or symbols
     # using the standard Ruby Comparable methods.
     def full_version
-      @full_version ||= Version.new((ENV["HOMEBREW_MACOS_VERSION"] || ENV["HOMEBREW_OSX_VERSION"]).chomp)
+      @full_version ||= Version.new((ENV["HOMEBREW_MACOS_VERSION"]).chomp)
     end
 
     def full_version=(version)
@@ -39,10 +39,12 @@ module OS
       @version = nil
     end
 
+    sig { returns(::Version) }
     def latest_sdk_version
       # TODO: bump version when new Xcode macOS SDK is released
-      Version.new "11.0"
+      ::Version.new("11.1")
     end
+    private :latest_sdk_version
 
     def outdated_release?
       # TODO: bump version when new macOS is released and also update
@@ -55,7 +57,16 @@ module OS
       # TODO: bump version when new macOS is released or announced
       # and also update references in docs/Installation.md and
       # https://github.com/Homebrew/install/blob/HEAD/install.sh
-      version >= "12.0"
+      version >= "12"
+    end
+
+    sig { returns(String) }
+    def preferred_perl_version
+      if version >= :big_sur
+        "5.30"
+      else
+        "5.18"
+      end
     end
 
     def languages
@@ -113,9 +124,16 @@ module OS
       sdk_locator.sdk_if_applicable(v)
     end
 
-    def sdk_for_formula(f, v = nil)
+    def sdk_for_formula(f, v = nil, check_only_runtime_requirements: false)
       # If the formula requires Xcode, don't return the CLT SDK
-      return Xcode.sdk if f.requirements.any? { |req| req.is_a? XcodeRequirement }
+      # If check_only_runtime_requirements is true, don't necessarily return the
+      # Xcode SDK if the XcodeRequirement is only a build or test requirement.
+      return Xcode.sdk if f.requirements.any? do |req|
+        next false unless req.is_a? XcodeRequirement
+        next false if check_only_runtime_requirements && req.build? && !req.test?
+
+        true
+      end
 
       sdk(v)
     end
@@ -178,7 +196,7 @@ module OS
       path = mdfind(*ids)
              .reject { |p| p.include?("/Backups.backupdb/") }
              .first
-      Pathname.new(path) unless path.nil? || path.empty?
+      Pathname.new(path) if path.present?
     end
 
     def mdfind(*ids)

@@ -1,13 +1,7 @@
 # typed: false
 # frozen_string_literal: true
 
-require_relative "shared_examples/requires_cask_token"
-require_relative "shared_examples/invalid_option"
-
 describe Cask::Cmd::Uninstall, :cask do
-  it_behaves_like "a command that requires a Cask token"
-  it_behaves_like "a command that handles invalid options"
-
   it "displays the uninstallation progress" do
     caffeine = Cask::CaskLoader.load(cask_path("local-caffeine"))
 
@@ -15,8 +9,8 @@ describe Cask::Cmd::Uninstall, :cask do
 
     output = Regexp.new <<~EOS
       ==> Uninstalling Cask local-caffeine
-      ==> Backing App 'Caffeine.app' up to '.*Caffeine.app'.
-      ==> Removing App '.*Caffeine.app'.
+      ==> Backing App 'Caffeine.app' up to '.*Caffeine.app'
+      ==> Removing App '.*Caffeine.app'
       ==> Purging files for version 1.2.3 of Cask local-caffeine
     EOS
 
@@ -57,22 +51,6 @@ describe Cask::Cmd::Uninstall, :cask do
     expect(caffeine.config.appdir.join("Transmission.app")).not_to exist
     expect(transmission).not_to be_installed
     expect(transmission.config.appdir.join("Caffeine.app")).not_to exist
-  end
-
-  it "calls `uninstall` before removing artifacts" do
-    cask = Cask::CaskLoader.load(cask_path("with-uninstall-script-app"))
-
-    Cask::Installer.new(cask).install
-
-    expect(cask).to be_installed
-    expect(cask.config.appdir.join("MyFancyApp.app")).to exist
-
-    expect {
-      described_class.run("with-uninstall-script-app")
-    }.not_to raise_error
-
-    expect(cask).not_to be_installed
-    expect(cask.config.appdir.join("MyFancyApp.app")).not_to exist
   end
 
   it "can uninstall Casks when the uninstall script is missing, but only when using `--force`" do

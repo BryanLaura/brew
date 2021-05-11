@@ -85,10 +85,6 @@ class DependencyCollector
     Dependency.new("bzip2", tags) unless which("bzip2")
   end
 
-  def java_dep_if_needed(tags)
-    JavaRequirement.new(tags)
-  end
-
   def self.tar_needs_xz_dependency?
     !new.xz_dep_if_needed([]).nil?
   end
@@ -124,13 +120,9 @@ class DependencyCollector
     case spec
     when :arch          then ArchRequirement.new(tags)
     when :codesign      then CodesignRequirement.new(tags)
-    when :java          then java_dep_if_needed(tags)
     when :linux         then LinuxRequirement.new(tags)
     when :macos         then MacOSRequirement.new(tags)
     when :maximum_macos then MacOSRequirement.new(tags, comparator: "<=")
-    when :osxfuse       then OsxfuseRequirement.new(tags)
-    when :tuntap        then TuntapRequirement.new(tags)
-    when :x11           then X11Requirement.new(tags)
     when :xcode         then XcodeRequirement.new(tags)
     else
       raise ArgumentError, "Unsupported special dependency #{spec.inspect}"

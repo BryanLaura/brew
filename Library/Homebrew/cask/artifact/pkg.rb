@@ -15,7 +15,7 @@ module Cask
     #
     # @api private
     class Pkg < AbstractArtifact
-      attr_reader :pkg_relative_path, :path, :stanza_options
+      attr_reader :path, :stanza_options
 
       def self.from_args(cask, path, **stanza_options)
         stanza_options.assert_valid_keys!(:allow_untrusted, :choices)
@@ -39,10 +39,17 @@ module Cask
       private
 
       def run_installer(command: nil, verbose: false, **_options)
-        ohai "Running installer for #{cask}; your password may be necessary."
-        ohai "Package installers may write to any location; options such as --appdir are ignored."
+        ohai "Running installer for #{cask}; your password may be necessary.",
+             "Package installers may write to any location; options such as `--appdir` are ignored."
         unless path.exist?
-          raise CaskError, "pkg source file not found: '#{path.relative_path_from(cask.staged_path)}'"
+          pkg = path.relative_path_from(cask.staged_path)
+          pkgs = Pathname.glob(cask.staged_path/"**"/"*.pkg").map { |path| path.relative_path_from(cask.staged_path) }
+
+          message = "Could not find PKG source file '#{pkg}'"
+          message += ", found #{pkgs.map { |path| "'#{path}'" }.to_sentence} instead" if pkgs.any?
+          message += "."
+
+          raise CaskError, message
         end
 
         args = [

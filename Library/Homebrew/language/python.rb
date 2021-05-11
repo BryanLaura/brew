@@ -96,17 +96,19 @@ module Language
       # @private
       def python_shebang_rewrite_info(python_path)
         Utils::Shebang::RewriteInfo.new(
-          %r{^#! ?/usr/bin/(env )?python([23](\.\d{1,2})?)?$},
-          28, # the length of "#! /usr/bin/env pythonx.yyy$"
-          python_path,
+          %r{^#! ?/usr/bin/(?:env )?python(?:[23](?:\.\d{1,2})?)?( |$)},
+          28, # the length of "#! /usr/bin/env pythonx.yyy "
+          "#{python_path}\\1",
         )
       end
 
       def detected_python_shebang(formula = self)
         python_deps = formula.deps.map(&:name).grep(/^python(@.*)?$/)
 
-        raise "Cannot detect Python shebang: formula does not depend on Python." if python_deps.empty?
-        raise "Cannot detect Python shebang: formula has multiple Python dependencies." if python_deps.length > 1
+        raise ShebangDetectionError.new("Python", "formula does not depend on Python") if python_deps.empty?
+        if python_deps.length > 1
+          raise ShebangDetectionError.new("Python", "formula has multiple Python dependencies")
+        end
 
         python_shebang_rewrite_info(Formula[python_deps.first].opt_bin/"python3")
       end
@@ -115,35 +117,6 @@ module Language
     # Mixin module for {Formula} adding virtualenv support features.
     module Virtualenv
       extend T::Sig
-
-      def self.included(base)
-        base.class_eval do
-          resource "homebrew-virtualenv" do
-            url "https://files.pythonhosted.org/packages/06/8c/eb8a0ae49eba5be054ca32b3a1dca432baee1d83c4f125d276c6a5fd2d20/virtualenv-20.1.0.tar.gz"
-            sha256 "b8d6110f493af256a40d65e29846c69340a947669eec8ce784fcf3dd3af28380"
-          end
-
-          resource "homebrew-appdirs" do
-            url "https://files.pythonhosted.org/packages/d7/d8/05696357e0311f5b5c316d7b95f46c669dd9c15aaeecbb48c7d0aeb88c40/appdirs-1.4.4.tar.gz"
-            sha256 "7d5d0167b2b1ba821647616af46a749d1c653740dd0d2415100fe26e27afdf41"
-          end
-
-          resource "homebrew-distlib" do
-            url "https://files.pythonhosted.org/packages/2f/83/1eba07997b8ba58d92b3e51445d5bf36f9fba9cb8166bcae99b9c3464841/distlib-0.3.1.zip"
-            sha256 "edf6116872c863e1aa9d5bb7cb5e05a022c519a4594dc703843343a9ddd9bff1"
-          end
-
-          resource "homebrew-filelock" do
-            url "https://files.pythonhosted.org/packages/14/ec/6ee2168387ce0154632f856d5cc5592328e9cf93127c5c9aeca92c8c16cb/filelock-3.0.12.tar.gz"
-            sha256 "18d82244ee114f543149c66a6e0c14e9c4f8a1044b5cdaadd0f82159d6a6ff59"
-          end
-
-          resource "homebrew-six" do
-            url "https://files.pythonhosted.org/packages/6b/34/415834bfdafca3c5f451532e8a8d9ba89a21c9743a0c59fbd0205c7f9426/six-1.15.0.tar.gz"
-            sha256 "30639c035cdb23534cd4aa2dd52c3bf48f06e5f4a941509c8bafd8ce11080259"
-          end
-        end
-      end
 
       # Instantiates, creates, and yields a {Virtualenv} object for use from
       # {Formula#install}, which provides helper methods for instantiating and
@@ -245,25 +218,7 @@ module Language
         def create
           return if (@venv_root/"bin/python").exist?
 
-          @formula.resource("homebrew-virtualenv").stage do |stage|
-            old_pythonpath = ENV.delete "PYTHONPATH"
-            begin
-              staging = Pathname.new(stage.staging.tmpdir)
-
-              ENV.prepend_create_path "PYTHONPATH", staging/"target/vendor"/Language::Python.site_packages(@python)
-              %w[appdirs distlib filelock six].each do |virtualenv_dependency|
-                @formula.resource("homebrew-#{virtualenv_dependency}").stage do
-                  @formula.system @python, *Language::Python.setup_install_args(staging/"target/vendor")
-                end
-              end
-
-              ENV.prepend_create_path "PYTHONPATH", staging/"target"/Language::Python.site_packages(@python)
-              @formula.system @python, *Language::Python.setup_install_args(staging/"target")
-              @formula.system @python, "-s", staging/"target/bin/virtualenv", "-p", @python, @venv_root
-            ensure
-              ENV["PYTHONPATH"] = old_pythonpath
-            end
-          end
+          @formula.system @python, "-m", "venv", @venv_root
 
           # Robustify symlinks to survive python patch upgrades
           @venv_root.find do |f|
@@ -303,8 +258,6 @@ module Language
           targets = Array(targets)
           targets.each do |t|
             if t.respond_to? :stage
-              next if t.name.start_with? "homebrew-"
-
               t.stage { do_install Pathname.pwd }
             else
               t = t.lines.map(&:strip) if t.respond_to?(:lines) && t.include?("\n")

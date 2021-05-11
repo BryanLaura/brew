@@ -17,10 +17,16 @@ module Homebrew
       #
       # @api public
       class Gnome
+        extend T::Sig
+
         NICE_NAME = "GNOME"
 
         # The `Regexp` used to determine if the strategy applies to the URL.
-        URL_MATCH_REGEX = /download\.gnome\.org/i.freeze
+        URL_MATCH_REGEX = %r{
+          ^https?://download\.gnome\.org
+          /sources
+          /(?<package_name>[^/]+)/ # The GNOME package name
+        }ix.freeze
 
         # Whether the strategy can be applied to the provided URL.
         #
@@ -36,10 +42,18 @@ module Homebrew
         # @param url [String] the URL of the content to check
         # @param regex [Regexp] a regex used for matching versions in content
         # @return [Hash]
-        def self.find_versions(url, regex = nil)
-          %r{/sources/(?<package_name>.*?)/}i =~ url
+        sig {
+          params(
+            url:   String,
+            regex: T.nilable(Regexp),
+            cask:  T.nilable(Cask::Cask),
+            block: T.nilable(T.proc.params(arg0: String).returns(T.any(T::Array[String], String))),
+          ).returns(T::Hash[Symbol, T.untyped])
+        }
+        def self.find_versions(url, regex, cask: nil, &block)
+          match = url.match(URL_MATCH_REGEX)
 
-          page_url = "https://download.gnome.org/sources/#{package_name}/cache.json"
+          page_url = "https://download.gnome.org/sources/#{match[:package_name]}/cache.json"
 
           # GNOME archive files seem to use a standard filename format, so we
           # count on the delimiter between the package name and numeric version
@@ -51,9 +65,9 @@ module Homebrew
           # development versions. See: https://www.gnome.org/gnome-3/source/
           #
           # Example regex: `/example-(\d+\.([0-8]\d*?)?[02468](?:\.\d+)*?)\.t/i`
-          regex ||= /#{Regexp.escape(package_name)}-(\d+\.([0-8]\d*?)?[02468](?:\.\d+)*?)\.t/i
+          regex ||= /#{Regexp.escape(match[:package_name])}-(\d+\.([0-8]\d*?)?[02468](?:\.\d+)*?)\.t/i
 
-          Homebrew::Livecheck::Strategy::PageMatch.find_versions(page_url, regex)
+          PageMatch.find_versions(page_url, regex, cask: cask, &block)
         end
       end
     end

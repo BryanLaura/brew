@@ -26,6 +26,8 @@ Instructions for a supported install of Homebrew on Linux are on the [homepage](
 
 The installation script installs Homebrew to `/home/linuxbrew/.linuxbrew` using *sudo* if possible and in your home directory at `~/.linuxbrew` otherwise. Homebrew does not use *sudo* after installation. Using `/home/linuxbrew/.linuxbrew` allows the use of more binary packages (bottles) than installing in your personal home directory.
 
+The prefix `/home/linuxbrew/.linuxbrew` was chosen so that users without admin access can ask an admin to create a `linuxbrew` role account and still benefit from precompiled binaries. If you do not yourself have admin privileges, consider asking your admin staff to create a `linuxbrew` role account for you with home directory `/home/linuxbrew`.
+
 Follow the *Next steps* instructions to add Homebrew to your `PATH` and to your bash shell profile script, either `~/.profile` on Debian/Ubuntu or `~/.bash_profile` on CentOS/Fedora/Red Hat.
 
 ```sh
@@ -55,14 +57,14 @@ Paste at a terminal prompt:
 ### Debian or Ubuntu
 
 ```sh
-sudo apt-get install build-essential curl file git
+sudo apt-get install build-essential procps curl file git
 ```
 
 ### Fedora, CentOS, or Red Hat
 
 ```sh
 sudo yum groupinstall 'Development Tools'
-sudo yum install curl file git
+sudo yum install procps-ng curl file git
 sudo yum install libxcrypt-compat # needed by Fedora 30 and up
 ```
 
@@ -92,9 +94,3 @@ eval $(~/.linuxbrew/bin/brew shellenv)
 - [@HomebrewOnLinux on Twitter](https://twitter.com/HomebrewOnLinux)
 - [Homebrew/linuxbrew-core on GitHub](https://github.com/Homebrew/linuxbrew-core)
 - [Homebrew/discussions (forum)](https://github.com/homebrew/discussions/discussions)
-
-## Sponsors
-
-Our binary packages (bottles) are built on [GitHub Actions](https://github.com/features/actions) and hosted by [Bintray](https://bintray.com/linuxbrew).
-
-[![Downloads by Bintray](https://bintray.com/docs/images/downloads_by_bintray_96.png)](https://bintray.com/linuxbrew)

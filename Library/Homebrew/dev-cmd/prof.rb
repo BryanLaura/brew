@@ -11,13 +11,13 @@ module Homebrew
   sig { returns(CLI::Parser) }
   def prof_args
     Homebrew::CLI::Parser.new do
-      usage_banner <<~EOS
-        `prof` [<command>]
-
-        Run Homebrew with a Ruby profiler, e.g. `brew prof readall`.
+      description <<~EOS
+        Run Homebrew with a Ruby profiler. For example, `brew prof readall`.
       EOS
       switch "--stackprof",
              description: "Use `stackprof` instead of `ruby-prof` (the default)."
+
+      named_args :command, min: 1
     end
   end
 
@@ -26,11 +26,13 @@ module Homebrew
 
     brew_rb = (HOMEBREW_LIBRARY_PATH/"brew.rb").resolved_path
     FileUtils.mkdir_p "prof"
+    cmd = args.named.first
+    raise UsageError, "#{cmd} is a Bash command!" if Commands.path(cmd).extname == ".sh"
 
     if args.stackprof?
       Homebrew.install_gem_setup_path! "stackprof"
       with_env HOMEBREW_STACKPROF: "1" do
-        safe_system ENV["HOMEBREW_RUBY_PATH"], brew_rb, *args.named
+        system ENV["HOMEBREW_RUBY_PATH"], brew_rb, *args.named
       end
       output_filename = "prof/d3-flamegraph.html"
       safe_system "stackprof --d3-flamegraph prof/stackprof.dump > #{output_filename}"

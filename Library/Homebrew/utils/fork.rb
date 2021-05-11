@@ -29,12 +29,15 @@ module Utils
     error
   end
 
-  def self.safe_fork(&_block)
+  def self.safe_fork
     Dir.mktmpdir("homebrew", HOMEBREW_TEMP) do |tmpdir|
       UNIXServer.open("#{tmpdir}/socket") do |server|
         read, write = IO.pipe
 
         pid = fork do
+          # bootsnap doesn't like these forked processes
+          ENV["HOMEBREW_NO_BOOTSNAP"] = "1"
+
           ENV["HOMEBREW_ERROR_PIPE"] = server.path
           server.close
           read.close
@@ -48,7 +51,14 @@ module Utils
           # to rescue them further down.
           if e.is_a?(ErrorDuringExecution)
             error_hash["cmd"] = e.cmd
-            error_hash["status"] = e.status.exitstatus
+            error_hash["status"] = if e.status.is_a?(Process::Status)
+              {
+                exitstatus: e.status.exitstatus,
+                termsig:    e.status.termsig,
+              }
+            else
+              e.status
+            end
             error_hash["output"] = e.output
           end
 
@@ -56,7 +66,7 @@ module Utils
           write.close
 
           exit!
-        else # rubocop:disable Layout/ElseAlignment
+        else
           exit!(true)
         end
 
@@ -64,7 +74,7 @@ module Utils
           begin
             socket = server.accept_nonblock
           rescue Errno::EAGAIN, Errno::EWOULDBLOCK, Errno::ECONNABORTED, Errno::EPROTO, Errno::EINTR
-            retry unless Process.waitpid(pid, Process::WNOHANG)
+            retry unless Process.waitpid(T.must(pid), Process::WNOHANG)
           else
             socket.send_io(write)
             socket.close
@@ -72,15 +82,15 @@ module Utils
           write.close
           data = read.read
           read.close
-          Process.wait(pid) unless socket.nil?
+          Process.wait(T.must(pid)) unless socket.nil?
 
           # 130 is the exit status for a process interrupted via Ctrl-C.
           # We handle it here because of the possibility of an interrupted process terminating
           # without writing its Interrupt exception to the error pipe.
           raise Interrupt if $CHILD_STATUS.exitstatus == 130
 
-          if data && !data.empty?
-            error_hash = JSON.parse(data.lines.first)
+          if data.present?
+            error_hash = JSON.parse(T.must(data.lines.first))
 
             e = ChildProcessError.new(error_hash)
 

@@ -1,4 +1,4 @@
-# typed: false
+# typed: true
 # frozen_string_literal: true
 
 require "commands"
@@ -12,13 +12,11 @@ module Homebrew
   sig { returns(CLI::Parser) }
   def command_args
     Homebrew::CLI::Parser.new do
-      usage_banner <<~EOS
-        `command` <cmd>
-
+      description <<~EOS
         Display the path to the file being used when invoking `brew` <cmd>.
       EOS
 
-      min_named 1
+      named_args :command, min: 1
     end
   end
 

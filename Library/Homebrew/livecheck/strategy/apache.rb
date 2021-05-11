@@ -21,8 +21,17 @@ module Homebrew
       #
       # @api public
       class Apache
+        extend T::Sig
+
         # The `Regexp` used to determine if the strategy applies to the URL.
-        URL_MATCH_REGEX = %r{www\.apache\.org/dyn/.+path=.+}i.freeze
+        URL_MATCH_REGEX = %r{
+          ^https?://www\.apache\.org
+          /dyn/.+path=
+          (?<path>.+?)/      # Path to directory of files or version directories
+          (?<prefix>[^/]*?)  # Any text in filename or directory before version
+          v?\d+(?:\.\d+)+    # The numeric version
+          (?<suffix>/|[^/]*) # Any text in filename or directory after version
+        }ix.freeze
 
         # Whether the strategy can be applied to the provided URL.
         #
@@ -38,28 +47,30 @@ module Homebrew
         # @param url [String] the URL of the content to check
         # @param regex [Regexp] a regex used for matching versions in content
         # @return [Hash]
-        def self.find_versions(url, regex = nil)
-          %r{
-            path=
-            (?<path>.+?)/ # Path to directory of files or version directories
-            (?<prefix>[^/]*?) # Any text in filename or directory before version
-            v?\d+(?:\.\d+)+ # The numeric version
-            (?<suffix>/|[^/]*) # Any text in filename or directory after version
-          }ix =~ url
+        sig {
+          params(
+            url:   String,
+            regex: T.nilable(Regexp),
+            cask:  T.nilable(Cask::Cask),
+            block: T.nilable(T.proc.params(arg0: String).returns(T.any(T::Array[String], String))),
+          ).returns(T::Hash[Symbol, T.untyped])
+        }
+        def self.find_versions(url, regex, cask: nil, &block)
+          match = url.match(URL_MATCH_REGEX)
 
           # Use `\.t` instead of specific tarball extensions (e.g. .tar.gz)
-          suffix.sub!(/\.t(?:ar\..+|[a-z0-9]+)$/i, "\.t")
+          suffix = match[:suffix].sub(/\.t(?:ar\..+|[a-z0-9]+)$/i, "\.t")
 
           # Example URL: `https://archive.apache.org/dist/example/`
-          page_url = "https://archive.apache.org/dist/#{path}/"
+          page_url = "https://archive.apache.org/dist/#{match[:path]}/"
 
           # Example directory regex: `%r{href=["']?v?(\d+(?:\.\d+)+)/}i`
           # Example file regexes:
           # * `/href=["']?example-v?(\d+(?:\.\d+)+)\.t/i`
           # * `/href=["']?example-v?(\d+(?:\.\d+)+)-bin\.zip/i`
-          regex ||= /href=["']?#{Regexp.escape(prefix)}v?(\d+(?:\.\d+)+)#{Regexp.escape(suffix)}/i
+          regex ||= /href=["']?#{Regexp.escape(match[:prefix])}v?(\d+(?:\.\d+)+)#{Regexp.escape(suffix)}/i
 
-          Homebrew::Livecheck::Strategy::PageMatch.find_versions(page_url, regex)
+          PageMatch.find_versions(page_url, regex, cask: cask, &block)
         end
       end
     end

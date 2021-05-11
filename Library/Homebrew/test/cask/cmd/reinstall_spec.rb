@@ -1,11 +1,7 @@
 # typed: false
 # frozen_string_literal: true
 
-require_relative "shared_examples/invalid_option"
-
 describe Cask::Cmd::Reinstall, :cask do
-  it_behaves_like "a command that handles invalid options"
-
   it "displays the reinstallation progress" do
     caffeine = Cask::CaskLoader.load(cask_path("local-caffeine"))
 
@@ -15,11 +11,11 @@ describe Cask::Cmd::Reinstall, :cask do
       ==> Downloading file:.*caffeine.zip
       Already downloaded: .*--caffeine.zip
       ==> Uninstalling Cask local-caffeine
-      ==> Backing App 'Caffeine.app' up to '.*Caffeine.app'.
-      ==> Removing App '.*Caffeine.app'.
+      ==> Backing App 'Caffeine.app' up to '.*Caffeine.app'
+      ==> Removing App '.*Caffeine.app'
       ==> Purging files for version 1.2.3 of Cask local-caffeine
       ==> Installing Cask local-caffeine
-      ==> Moving App 'Caffeine.app' to '.*Caffeine.app'.
+      ==> Moving App 'Caffeine.app' to '.*Caffeine.app'
       .*local-caffeine was successfully installed!
     EOS
 

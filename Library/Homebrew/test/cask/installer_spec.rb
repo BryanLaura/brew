@@ -16,7 +16,7 @@ describe Cask::Installer, :cask do
       expect(caffeine.config.appdir.join("Caffeine.app")).to be_a_directory
     end
 
-    it "works with dmg-based Casks" do
+    it "works with HFS+ dmg-based Casks" do
       asset = Cask::CaskLoader.load(cask_path("container-dmg"))
 
       described_class.new(asset).install
@@ -119,7 +119,7 @@ describe Cask::Installer, :cask do
           ==> Installing Cask with-installer-manual
           To complete the installation of Cask with-installer-manual, you must also
           run the installer at:
-            '#{with_installer_manual.staged_path.join("Caffeine.app")}'
+            #{with_installer_manual.staged_path.join("Caffeine.app")}
           🍺  with-installer-manual was successfully installed!
         EOS
       ).to_stdout

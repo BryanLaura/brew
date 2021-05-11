@@ -56,9 +56,7 @@ describe Formula do
       expect(f.class.stable.deps[1].name).to eq("hello_linux")
       expect(f.class.stable.deps[2]).to eq(nil)
     end
-  end
 
-  describe "#on_linux" do
     it "adds a patch on Linux only" do
       f = formula do
         homepage "https://brew.sh"
@@ -81,9 +79,7 @@ describe Formula do
       expect(f.patchlist.first.strip).to eq(:p1)
       expect(f.patchlist.first.url).to eq("patch_linux")
     end
-  end
 
-  describe "#on_linux" do
     it "uses on_linux within a resource block" do
       f = formula do
         homepage "https://brew.sh"
@@ -107,6 +103,12 @@ describe Formula do
       f = Testball.new
       expect(f.shared_library("foobar")).to eq("foobar.so")
       expect(f.shared_library("foobar", 2)).to eq("foobar.so.2")
+      expect(f.shared_library("foobar", nil)).to eq("foobar.so")
+      expect(f.shared_library("foobar", "*")).to eq("foobar.so{,.*}")
+      expect(f.shared_library("*")).to eq("*.so{,.*}")
+      expect(f.shared_library("*", 2)).to eq("*.so.2")
+      expect(f.shared_library("*", nil)).to eq("*.so{,.*}")
+      expect(f.shared_library("*", "*")).to eq("*.so{,.*}")
     end
   end
 end

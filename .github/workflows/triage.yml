@@ -10,7 +10,7 @@ on:
       - labeled
       - unlabeled
   schedule:
-    - cron: '0 */3 * * *' # every 3 hours
+    - cron: "0 */3 * * *" # every 3 hours
 
 jobs:
   review:
@@ -19,19 +19,19 @@ jobs:
     steps:
       - name: Re-run this workflow
         if: github.event_name == 'schedule' || github.event.action == 'closed'
-        uses: reitermarkus/rerun-workflow@cf91bee6964dfde64eccbf5600c3ea206af11359
+        uses: reitermarkus/rerun-workflow@64cba9e834916060e77b7dad424d086837fdd0a6
         with:
-          token: ${{ secrets.HOMEBREW_GITHUB_API_TOKEN }}
+          token: ${{ secrets.HOMEBREW_GITHUB_PUBLIC_REPO_TOKEN }}
           continuous-label: waiting for feedback
           trigger-labels: critical
           workflow: triage.yml
       - name: Review pull request
         if: >
           (github.event_name == 'pull_request' || github.event_name == 'pull_request_target') &&
-            github.event.action != 'closed'
-        uses: actions/github-script@v3
+            github.event.action != 'closed' && github.event.pull_request.state != 'closed'
+        uses: actions/github-script@v4.0.2
         with:
-          github-token: ${{ secrets.HOMEBREW_GITHUB_API_TOKEN }}
+          github-token: ${{ secrets.HOMEBREW_GITHUB_PUBLIC_REPO_TOKEN }}
           script: |
             async function approvePullRequest(pullRequestNumber) {
               const reviews = await approvalsByAuthenticatedUser(pullRequestNumber)
@@ -133,7 +133,7 @@ jobs:
               })
 
               const { data: user } = await github.users.getAuthenticated()
-              if (pullRequest.user.login == user) {
+              if (pullRequest.user.login == user.login) {
                 core.warning('Pull request author is a bot.')
                 return
               }

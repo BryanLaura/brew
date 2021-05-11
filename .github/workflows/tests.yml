@@ -1,166 +1,322 @@
-name: GitHub Actions CI
+name: CI
 on:
   push:
-    branches: master
+    branches:
+      - master
   pull_request:
 env:
   HOMEBREW_DEVELOPER: 1
   HOMEBREW_NO_AUTO_UPDATE: 1
 jobs:
-  tests:
+  syntax:
     if: github.repository == 'Homebrew/brew'
-    runs-on: ${{ matrix.os }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Set up Homebrew
+        id: set-up-homebrew
+        uses: Homebrew/actions/setup-homebrew@master
+
+      - name: Cache Bundler RubyGems
+        uses: actions/cache@v1
+        with:
+          path: ${{ steps.set-up-homebrew.outputs.gems-path }}
+          key: ${{ runner.os }}-rubygems-${{ steps.set-up-homebrew.outputs.gems-hash }}
+          restore-keys: ${{ runner.os }}-rubygems-
+
+      - name: Install Bundler RubyGems
+        run: brew install-bundler-gems
+
+      - name: Install shellcheck
+        run: brew install shellcheck
+
+      - run: brew style --display-cop-names
+
+      - run: brew typecheck
+
+      - name: Run vale for docs linting
+        run: |
+          brew install vale
+          vale docs/
+
+  tap-syntax:
+    name: tap syntax (Linux)
+    needs: syntax
+    if: startsWith(github.repository, 'Homebrew/')
+    runs-on: ubuntu-latest
+    steps:
+      - name: Set up Homebrew
+        id: set-up-homebrew
+        uses: Homebrew/actions/setup-homebrew@master
+
+      - run: brew test-bot --only-cleanup-before
+
+      - run: brew config
+
+      - name: Cache Bundler RubyGems
+        uses: actions/cache@v1
+        with:
+          path: ${{ steps.set-up-homebrew.outputs.gems-path }}
+          key: ${{ runner.os }}-rubygems-${{ steps.set-up-homebrew.outputs.gems-hash }}
+          restore-keys: ${{ runner.os }}-rubygems-
+
+      - name: Install Bundler RubyGems
+        run: brew install-bundler-gems
+
+      - run: brew doctor
+
+      - name: Run brew update-tests
+        if: github.event_name == 'pull_request'
+        run: |
+          brew update-test
+          brew update-test --to-tag
+          brew update-test --commit=HEAD
+
+      - name: Run brew readall on all taps
+        run: brew readall --aliases
+
+      - name: Run brew style on linuxbrew-core
+        run: brew style --display-cop-names homebrew/core
+
+      - name: Run brew audit --skip-style on all taps
+        run: brew audit --skip-style --display-failures-only
+
+      - name: Set up all Homebrew taps
+        run: |
+          HOMEBREW_REPOSITORY="$(brew --repo)"
+          HOMEBREW_CORE_REPOSITORY="$HOMEBREW_REPOSITORY/Library/Taps/homebrew/homebrew-core"
+          git -C "$HOMEBREW_CORE_REPOSITORY" remote add homebrew_core https://github.com/Homebrew/homebrew-core
+          git -C "$HOMEBREW_CORE_REPOSITORY" fetch homebrew_core || git -C "$HOMEBREW_CORE_REPOSITORY" fetch homebrew_core
+          git -C "$HOMEBREW_CORE_REPOSITORY" checkout --force -B master homebrew_core/master
+
+          brew tap homebrew/aliases
+          brew tap homebrew/autoupdate
+          brew tap homebrew/bundle
+          brew tap homebrew/cask
+          brew tap homebrew/cask-drivers
+          brew tap homebrew/cask-fonts
+          brew tap homebrew/cask-versions
+          brew tap homebrew/command-not-found
+          brew tap homebrew/formula-analytics
+          brew tap homebrew/linux-dev
+          brew tap homebrew/portable-ruby
+          brew tap homebrew/services
+
+          brew update-reset Library/Taps/homebrew/homebrew-bundle
+
+          # brew style doesn't like world writable directories
+          sudo chmod -R g-w,o-w "$HOMEBREW_REPOSITORY/Library/Taps"
+
+      - name: Run brew style on homebrew-core
+        run: brew style --display-cop-names homebrew/core
+        env:
+          HOMEBREW_SIMULATE_MACOS_ON_LINUX: 1
+
+      - name: Run brew audit --skip-style on homebrew-core
+        run: brew audit --skip-style --tap=homebrew/core
+        env:
+          HOMEBREW_SIMULATE_MACOS_ON_LINUX: 1
+
+      - name: Run brew style on official taps
+        run: |
+          brew style --display-cop-names homebrew/bundle \
+                                         homebrew/services \
+                                         homebrew/test-bot
+
+          brew style --display-cop-names homebrew/aliases\
+                                         homebrew/autoupdate\
+                                         homebrew/command-not-found \
+                                         homebrew/formula-analytics \
+                                         homebrew/linux-dev \
+                                         homebrew/portable-ruby
+
+      - name: Run brew style on cask taps
+        run: |
+          brew style --display-cop-names homebrew/cask \
+                                         homebrew/cask-drivers \
+                                         homebrew/cask-fonts \
+                                         homebrew/cask-versions
+
+  vendored-gems:
+    name: vendored gems (Linux)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Set up Homebrew
+        id: set-up-homebrew
+        uses: Homebrew/actions/setup-homebrew@master
+
+      - name: Configure Git user
+        uses: Homebrew/actions/git-user-config@master
+        with:
+          username: BrewTestBot
+
+      # Can't cache this because we need to check that it doesn't fail the
+      # "uncommitted RubyGems" step with a cold cache.
+      - name: Install Bundler RubyGems
+        run: brew install-bundler-gems
+
+      - name: Check for uncommitted RubyGems
+        run: git diff --stat --exit-code Library/Homebrew/vendor/bundle/ruby
+
+  docker:
+    needs: syntax
+    runs-on: ubuntu-latest
+    steps:
+      - name: Set up Homebrew
+        id: set-up-homebrew
+        uses: Homebrew/actions/setup-homebrew@master
+
+      - name: Build Docker image
+        run: docker build -t brew --build-arg=version=16.04 .
+
+      - name: Deploy the Docker image to GitHub Packages and Docker Hub
+        if: github.ref == 'refs/heads/master'
+        run: |
+          echo ${{secrets.HOMEBREW_BREW_GITHUB_PACKAGES_TOKEN}} | \
+            docker login ghcr.io -u BrewTestBot --password-stdin
+          docker tag brew "ghcr.io/homebrew/ubuntu16.04:master"
+          docker push "ghcr.io/homebrew/ubuntu16.04:master"
+          echo ${{secrets.HOMEBREW_BREW_DOCKER_TOKEN}} | \
+            docker login -u brewtestbot --password-stdin
+          docker tag brew "homebrew/ubuntu16.04:master"
+          docker push "homebrew/ubuntu16.04:master"
+
+  tests:
+    name: ${{ matrix.name }}
+    needs: syntax
+    runs-on: ubuntu-latest
     strategy:
       matrix:
-        os: [ubuntu-latest, macOS-latest, macOS-11.0]
         include:
-          - os: ubuntu-latest
-            core-tap: 'linuxbrew-core'
-          - os: macOS-latest
-            core-tap: 'homebrew-core'
-          - os: macOS-11.0
-            core-tap: 'homebrew-core'
+          - name: tests (no-compatibility mode)
+            test-flags: --no-compat --online --coverage
+          - name: tests (generic OS)
+            test-flags: --generic --online --coverage
+          - name: tests (Linux)
+            test-flags: --online --coverage
     steps:
-    - name: Set up Homebrew
-      id: set-up-homebrew
-      uses: Homebrew/actions/setup-homebrew@master
+      - name: Set up Homebrew
+        id: set-up-homebrew
+        uses: Homebrew/actions/setup-homebrew@master
 
-    - name: Configure Git user
-      uses: Homebrew/actions/git-user-config@master
-      with:
-        username: BrewTestBot
+      - name: Cache Bundler RubyGems
+        uses: actions/cache@v1
+        with:
+          path: ${{ steps.set-up-homebrew.outputs.gems-path }}
+          key: ${{ runner.os }}-rubygems-${{ steps.set-up-homebrew.outputs.gems-hash }}
+          restore-keys: ${{ runner.os }}-rubygems-
 
-    - run: brew test-bot --only-cleanup-before
+      - name: Install Bundler RubyGems
+        run: brew install-bundler-gems
 
-    - name: Set up Xcode
-      if: matrix.os == 'macOS-11.0'
-      run: sudo xcode-select --switch /Applications/Xcode_12.2.app/Contents/Developer
+      - name: Create parallel test log directory
+        run: mkdir tests
 
-    - run: brew config
+      - name: Cache parallel tests log
+        uses: actions/cache@v1
+        with:
+          path: tests
+          key: ${{ runner.os }}-${{ matrix.test-flags }}-parallel_runtime_rspec-${{ github.sha }}
+          restore-keys: ${{ runner.os }}-${{ matrix.test-flags }}-parallel_runtime_rspec-
 
-    # Can't cache this because we need to check that it doesn't fail the
-    # "uncommitted RubyGems" step with a cold cache.
-    - name: Install Bundler RubyGems
-      run: brew install-bundler-gems
+      - name: Run brew tests
+        run: |
+          # brew tests doesn't like world writable directories
+          sudo chmod -R g-w,o-w /home/linuxbrew/.linuxbrew/Homebrew
 
-    - name: Check for uncommitted RubyGems
-      run: git diff --stat --exit-code Library/Homebrew/vendor/bundle/ruby
+          brew tests ${{ matrix.test-flags }}
+        env:
+          HOMEBREW_GITHUB_API_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-    - run: brew doctor
+      - uses: codecov/codecov-action@a1ed4b322b4b38cb846afb5a0ebfa17086917d27
 
-    - name: Set up Homebrew official command taps
-      run: |
-        # Setup taps needed for 'brew tests' and 'brew man'
-        cd "$(brew --repo)"
+  test-default-formula-linux:
+    name: test default formula (Linux)
+    runs-on: ubuntu-latest
+    env:
+      HOMEBREW_BOOTSNAP: 1
+    steps:
+      - name: Set up Homebrew
+        id: set-up-homebrew
+        uses: Homebrew/actions/setup-homebrew@master
 
-        if [ "$RUNNER_OS" = "macOS" ]; then
-          brew update-reset Library/Taps/homebrew/homebrew-bundle Library/Taps/homebrew/homebrew-cask Library/Taps/homebrew/homebrew-services
-        else
-          brew update-reset Library/Taps/homebrew/homebrew-services
-        fi
+      - run: brew test-bot --only-cleanup-before
 
-    - name: Run brew style on Homebrew/brew
-      run: brew style --display-cop-names
+      - run: brew test-bot --only-formulae --only-json-tab --test-default-formula
 
-    - name: Run brew man
-      run: brew man --fail-if-changed
+  test-everything:
+    name: test everything (macOS)
+    needs: syntax
+    if: startsWith(github.repository, 'Homebrew/')
+    runs-on: macos-latest
+    env:
+      HOMEBREW_BOOTSNAP: 1
+    steps:
+      - name: Set up Homebrew
+        id: set-up-homebrew
+        uses: Homebrew/actions/setup-homebrew@master
 
-    - name: Install brew tests dependencies
-      if: matrix.os != 'ubuntu-latest'
-      run: |
-        brew install subversion
-        Library/Homebrew/shims/scm/svn --homebrew=print-path
-        which svn
-        which svnadmin
+      - name: Set up Xcode
+        run: sudo xcode-select --switch /Applications/Xcode_12.2.app/Contents/Developer
 
-    - name: Run brew tests
-      run: |
-        # brew tests doesn't like world writable directories
-        if [[ "$RUNNER_OS" = "Linux" ]]; then
-            sudo chmod -R g-w,o-w /home/linuxbrew/.linuxbrew/Homebrew
-        fi
+      - run: brew test-bot --only-cleanup-before
 
-        # don't bother running all tests on both platforms (for speed)
-        if [ "$RUNNER_OS" = "Linux" ]; then
-          brew tests --no-compat --online
-          brew tests --generic --online
-          brew tests --online
-        else
-          brew tests --online --coverage
-        fi
-      env:
-        HOMEBREW_GITHUB_API_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - run: brew config
 
-        # set variables for coverage reporting
-        HOMEBREW_CODECOV_TOKEN: 3ea0364c-80ce-47a3-9fba-93a940d4b5d7
+      # Can't cache this because we need to check that it doesn't fail the
+      # "uncommitted RubyGems" step with a cold cache.
+      - name: Install Bundler RubyGems
+        run: brew install-bundler-gems
 
-        # These cannot be queried at the macOS level on GitHub Actions.
-        HOMEBREW_LANGUAGES: en-GB
+      - name: Check for uncommitted RubyGems
+        run: git diff --stat --exit-code Library/Homebrew/vendor/bundle/ruby
 
-    - name: Run brew update-tests
-      run: |
-        brew update-test
-        brew update-test --to-tag
-        brew update-test --commit=HEAD
-      if: github.event_name == 'pull_request'
+      - run: brew doctor
 
-    - name: Run brew readall on all taps
-      run: brew readall --aliases
+      - name: Run brew update-tests
+        if: github.event_name == 'pull_request'
+        run: |
+          brew update-test
+          brew update-test --to-tag
+          brew update-test --commit=HEAD
 
-    - name: Run brew style on ${{ matrix.core-tap }}
-      run: brew style --display-cop-names homebrew/core
+      - name: Set up all Homebrew taps
+        run: |
+          brew tap homebrew/cask
+          brew tap homebrew/cask-drivers
+          brew tap homebrew/cask-fonts
+          brew tap homebrew/cask-versions
+          brew update-reset Library/Taps/homebrew/homebrew-bundle \
+                            Library/Taps/homebrew/homebrew-cask \
+                            Library/Taps/homebrew/homebrew-cask-versions \
+                            Library/Taps/homebrew/homebrew-services
 
-    - name: Run brew style on official taps
-      run: brew style --display-cop-names homebrew/bundle homebrew/services homebrew/test-bot
+      - name: Run brew readall on all taps
+        run: brew readall --aliases
 
-    - name: Run brew style on cask taps
-      if: matrix.os != 'ubuntu-latest'
-      run: |
-        brew tap homebrew/cask
-        brew tap homebrew/cask-drivers
-        brew tap homebrew/cask-fonts
-        brew tap homebrew/cask-versions
+      - name: Install brew tests dependencies
+        run: |
+          brew install subversion
+          brew sh -c "svn --homebrew=print-path"
+          which svn
+          which svnadmin
 
-        brew style --display-cop-names \
-          homebrew/cask \
-          homebrew/cask-drivers \
-          homebrew/cask-fonts \
-          homebrew/cask-versions
+      - name: Create parallel test log directory
+        run: mkdir tests
 
-    - name: Run brew audit --skip-style on all taps
-      run: brew audit --skip-style
+      - name: Cache parallel tests log
+        uses: actions/cache@v1
+        with:
+          path: tests
+          key: ${{ runner.os }}-parallel_runtime_rspec-${{ github.sha }}
+          restore-keys: ${{ runner.os }}-parallel_runtime_rspec-
 
-    - run: brew typecheck
+      - name: Run brew tests
+        run: brew tests --online --coverage
+        env:
+          HOMEBREW_GITHUB_API_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # These cannot be queried at the macOS level on GitHub Actions.
+          HOMEBREW_LANGUAGES: en-GB
 
-    - name: Run vale for docs linting
-      run: |
-        brew install vale
-        vale docs/
+      - run: brew test-bot --only-formulae --test-default-formula
 
-    - name: Lint Dockerfile
-      if: matrix.os == 'ubuntu-latest'
-      run: |
-        brew install hadolint
-        hadolint Dockerfile
-
-    - name: Build Docker image
-      if: matrix.os == 'ubuntu-latest'
-      run: docker build -t brew --build-arg=version=16.04 .
-
-    - name: Run brew test-bot --only-formulae --test-default-formula
-      run: |
-        if [ "$RUNNER_OS" = "Linux" ]; then
-          docker run --rm brew brew test-bot --only-formulae --test-default-formula
-        else
-          brew test-bot --only-formulae --test-default-formula
-        fi
-
-    - name: Deploy the Docker image to GitHub Packages and Docker Hub
-      if: matrix.os == 'ubuntu-latest' && github.ref == 'refs/heads/master'
-      run: |
-        echo ${{secrets.HOMEBREW_GITHUB_PACKAGES_API_TOKEN}} | docker login ghcr.io -u BrewTestBot --password-stdin
-        docker tag brew "ghcr.io/homebrew/ubuntu16.04:master"
-        docker push "ghcr.io/homebrew/ubuntu16.04:master"
-        echo ${{secrets.DOCKER_TOKEN}} | docker login -u brewtestbot --password-stdin
-        docker tag brew "homebrew/ubuntu16.04:master"
-        docker push "homebrew/ubuntu16.04:master"
+      - uses: codecov/codecov-action@a1ed4b322b4b38cb846afb5a0ebfa17086917d27

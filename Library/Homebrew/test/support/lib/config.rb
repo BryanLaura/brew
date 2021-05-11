@@ -37,6 +37,11 @@ HOMEBREW_LOCKS         = (HOMEBREW_PREFIX.parent/"locks").freeze
 HOMEBREW_CELLAR        = (HOMEBREW_PREFIX.parent/"cellar").freeze
 HOMEBREW_LOGS          = (HOMEBREW_PREFIX.parent/"logs").freeze
 HOMEBREW_TEMP          = (HOMEBREW_PREFIX.parent/"temp").freeze
+HOMEBREW_RUBY_EXEC_ARGS = [
+  RUBY_PATH,
+  ENV["HOMEBREW_RUBY_WARNINGS"],
+  "-I", HOMEBREW_LIBRARY_PATH/"test/support/lib"
+].freeze
 
 TEST_FIXTURE_DIR = (HOMEBREW_LIBRARY_PATH/"test/support/fixtures").freeze
 
@@ -50,5 +55,9 @@ TEST_SHA256 = "deadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeef"
 
 # For testing's sake always assume the default prefix
 module Homebrew
+  remove_const :DEFAULT_PREFIX if defined?(DEFAULT_PREFIX)
   DEFAULT_PREFIX = HOMEBREW_PREFIX.to_s.freeze
+
+  remove_const :DEFAULT_REPOSITORY if defined?(DEFAULT_REPOSITORY)
+  DEFAULT_REPOSITORY = HOMEBREW_REPOSITORY.to_s.freeze
 end

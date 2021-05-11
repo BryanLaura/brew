@@ -20,10 +20,8 @@ class CaskDependent
   end
 
   def deps
-    @deps ||= begin
-      @cask.depends_on.formula.map do |f|
-        Dependency.new f
-      end
+    @deps ||= @cask.depends_on.formula.map do |f|
+      Dependency.new f
     end
   end
 
@@ -40,7 +38,6 @@ class CaskDependent
         requirements << Requirement.new([{ cask: cask_ref }])
       end
       requirements << dsl_reqs.macos if dsl_reqs.macos
-      requirements << X11Requirement.new if dsl_reqs.x11
 
       requirements
     end

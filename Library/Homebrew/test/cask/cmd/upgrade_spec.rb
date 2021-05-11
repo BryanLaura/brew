@@ -1,8 +1,6 @@
 # typed: false
 # frozen_string_literal: true
 
-require_relative "shared_examples/invalid_option"
-
 describe Cask::Cmd::Upgrade, :cask do
   let(:version_latest_path_2) { version_latest.config.appdir.join("Caffeine Pro.app") }
   let(:version_latest_path_1) { version_latest.config.appdir.join("Caffeine Mini.app") }
@@ -14,9 +12,7 @@ describe Cask::Cmd::Upgrade, :cask do
   let(:local_caffeine_path) { local_caffeine.config.appdir.join("Caffeine.app") }
   let(:local_caffeine) { Cask::CaskLoader.load("local-caffeine") }
 
-  it_behaves_like "a command that handles invalid options"
-
-  context "successful upgrade" do
+  context "when the upgrade is successful" do
     let(:installed) {
       [
         "outdated/local-caffeine",
@@ -153,7 +149,7 @@ describe Cask::Cmd::Upgrade, :cask do
     end
   end
 
-  context "dry run upgrade" do
+  context "when the upgrade is a dry run" do
     let(:installed) {
       [
         "outdated/local-caffeine",
@@ -298,7 +294,7 @@ describe Cask::Cmd::Upgrade, :cask do
     end
   end
 
-  context "failed upgrade" do
+  context "when an upgrade failed" do
     let(:installed) {
       [
         "outdated/bad-checksum",
@@ -353,7 +349,7 @@ describe Cask::Cmd::Upgrade, :cask do
     end
   end
 
-  context "multiple failures" do
+  context "when there were multiple failures" do
     let(:installed) {
       [
         "outdated/bad-checksum",

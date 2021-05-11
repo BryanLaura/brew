@@ -6,19 +6,19 @@ describe Cask::Cask, :cask do
 
   context "when multiple versions are installed" do
     describe "#versions" do
-      context "and there are duplicate versions" do
+      context "when there are duplicate versions" do
         it "uses the last unique version" do
           allow(cask).to receive(:timestamped_versions).and_return([
-                                                                     ["1.2.2", "0999"],
-                                                                     ["1.2.3", "1000"],
-                                                                     ["1.2.2", "1001"],
-                                                                   ])
+            ["1.2.2", "0999"],
+            ["1.2.3", "1000"],
+            ["1.2.2", "1001"],
+          ])
 
           expect(cask).to receive(:timestamped_versions)
           expect(cask.versions).to eq([
-                                        "1.2.3",
-                                        "1.2.2",
-                                      ])
+            "1.2.3",
+            "1.2.2",
+          ])
         end
       end
     end
@@ -41,13 +41,13 @@ describe Cask::Cask, :cask do
       expect(c.token).to eq("local-caffeine")
     end
 
-    it "returns an instance of the Cask from a url" do
+    it "returns an instance of the Cask from a URL" do
       c = Cask::CaskLoader.load("file://#{tap_path}/Casks/local-caffeine.rb")
       expect(c).to be_kind_of(described_class)
       expect(c.token).to eq("local-caffeine")
     end
 
-    it "raises an error when failing to download a Cask from a url" do
+    it "raises an error when failing to download a Cask from a URL" do
       expect {
         url = "file://#{tap_path}/Casks/notacask.rb"
 

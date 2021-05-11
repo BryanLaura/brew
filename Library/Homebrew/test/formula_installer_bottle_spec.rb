@@ -8,6 +8,7 @@ require "tab"
 require "cmd/install"
 require "test/support/fixtures/testball"
 require "test/support/fixtures/testball_bottle"
+require "test/support/fixtures/testball_bottle_cellar"
 
 describe FormulaInstaller do
   alias_matcher :pour_bottle, :be_pour_bottle
@@ -23,6 +24,7 @@ describe FormulaInstaller do
 
     stub_formula_loader formula
     stub_formula_loader formula("gcc") { url "gcc-1.0" }
+    stub_formula_loader formula("gcc@5") { url "gcc-5.0" }
     stub_formula_loader formula("patchelf") { url "patchelf-1.0" }
     allow(Formula["patchelf"]).to receive(:latest_version_installed?).and_return(true)
 
@@ -49,26 +51,43 @@ describe FormulaInstaller do
     expect(formula).not_to be_latest_version_installed
   end
 
+  def test_basic_formula_setup(f)
+    # Test that things made it into the Keg
+    expect(f.bin).to be_a_directory
+
+    expect(f.libexec).to be_a_directory
+
+    expect(f.prefix/"main.c").not_to exist
+
+    # Test that things made it into the Cellar
+    keg = Keg.new f.prefix
+    keg.link
+
+    bin = HOMEBREW_PREFIX/"bin"
+    expect(bin).to be_a_directory
+
+    expect(f.libexec).to be_a_directory
+  end
+
   specify "basic bottle install" do
     allow(DevelopmentTools).to receive(:installed?).and_return(false)
     Homebrew.install_args.parse(["testball_bottle"])
     temporarily_install_bottle(TestballBottle.new) do |f|
-      # Copied directly from formula_installer_spec.rb
-      # as we expect the same behavior.
+      test_basic_formula_setup(f)
+    end
+  end
 
-      # Test that things made it into the Keg
-      expect(f.bin).to be_a_directory
+  specify "basic bottle install with cellar information on sha256 line" do
+    allow(DevelopmentTools).to receive(:installed?).and_return(false)
+    Homebrew.install_args.parse(["testball_bottle_cellar"])
+    temporarily_install_bottle(TestballBottleCellar.new) do |f|
+      test_basic_formula_setup(f)
 
-      expect(f.libexec).to be_a_directory
+      # skip_relocation is always false on Linux but can be true on macOS.
+      # see: extend/os/linux/software_spec.rb
+      skip_relocation = !OS.linux?
 
-      expect(f.prefix/"main.c").not_to exist
-
-      # Test that things made it into the Cellar
-      keg = Keg.new f.prefix
-      keg.link
-
-      bin = HOMEBREW_PREFIX/"bin"
-      expect(bin).to be_a_directory
+      expect(f.bottle_specification.skip_relocation?).to eq(skip_relocation)
     end
   end
 
@@ -83,7 +102,7 @@ describe FormulaInstaller do
 
     expect {
       described_class.new(formula).install
-    }.to raise_error(BuildToolsError)
+    }.to raise_error(UnbottledError)
 
     expect(formula).not_to be_latest_version_installed
   end

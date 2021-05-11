@@ -5,7 +5,9 @@ require "version"
 require "os/mac/version"
 
 describe OS::Mac::Version do
-  subject(:version) { described_class.new("10.14") }
+  let(:version) { described_class.new("10.14") }
+  let(:big_sur_major) { described_class.new("11.0") }
+  let(:big_sur_update) { described_class.new("11.1") }
 
   specify "comparison with Symbol" do
     expect(version).to be > :high_sierra
@@ -38,18 +40,46 @@ describe OS::Mac::Version do
     expect(version).to be < Version.create("10.15")
   end
 
+  describe "after Big Sur" do
+    specify "comparison with :big_sur" do
+      expect(big_sur_major).to eq :big_sur
+      expect(big_sur_major).to be <= :big_sur
+      expect(big_sur_major).to be >= :big_sur
+      expect(big_sur_major).not_to be > :big_sur
+      expect(big_sur_major).not_to be < :big_sur
+
+      expect(big_sur_update).to eq :big_sur
+      expect(big_sur_update).to be <= :big_sur
+      expect(big_sur_update).to be >= :big_sur
+      expect(big_sur_update).not_to be > :big_sur
+      expect(big_sur_update).not_to be < :big_sur
+    end
+  end
+
   describe "#new" do
     it "raises an error if the version is not a valid macOS version" do
       expect {
         described_class.new("1.2")
       }.to raise_error(MacOSVersionError, 'unknown or unsupported macOS version: "1.2"')
     end
+
+    it "creates a new version from a valid macOS version" do
+      string_version = described_class.new("11")
+      expect(string_version).to eq(:big_sur)
+    end
   end
 
-  specify "#from_symbol" do
-    expect(described_class.from_symbol(:mojave)).to eq(version)
-    expect { described_class.from_symbol(:foo) }
-      .to raise_error(MacOSVersionError, "unknown or unsupported macOS version: :foo")
+  describe "#from_symbol" do
+    it "raises an error if the symbol is not a valid macOS version" do
+      expect {
+        described_class.from_symbol(:foo)
+      }.to raise_error(MacOSVersionError, "unknown or unsupported macOS version: :foo")
+    end
+
+    it "creates a new version from a valid macOS version" do
+      symbol_version = described_class.from_symbol(:mojave)
+      expect(symbol_version).to eq(version)
+    end
   end
 
   specify "#pretty_name" do

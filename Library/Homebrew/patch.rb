@@ -29,31 +29,6 @@ module Patch
       raise ArgumentError, "unexpected value #{strip.inspect} for strip"
     end
   end
-
-  def self.normalize_legacy_patches(list)
-    patches = []
-
-    case list
-    when Hash
-      list
-    when Array, String, :DATA
-      { p1: list }
-    else
-      {}
-    end.each_pair do |strip, urls|
-      Array(urls).each do |url|
-        patch = case url
-        when :DATA
-          DATAPatch.new(strip)
-        else
-          LegacyPatch.new(strip, url)
-        end
-        patches << patch
-      end
-    end
-
-    patches
-  end
 end
 
 # An abstract class representing a patch embedded into a formula.
@@ -109,7 +84,7 @@ class DATAPatch < EmbeddedPatch
         line = f.gets
         break if line.nil? || line =~ /^__END__$/
       end
-      while line = f.gets
+      while (line = f.gets)
         data << line
       end
     end
@@ -194,17 +169,5 @@ class ExternalPatch
   sig { returns(String) }
   def inspect
     "#<#{self.class.name}: #{strip.inspect} #{url.inspect}>"
-  end
-end
-
-# A legacy patch.
-#
-# Legacy patches have no checksum and are not cached.
-#
-# @api private
-class LegacyPatch < ExternalPatch
-  def initialize(strip, _url)
-    odisabled "legacy patches", "'patch do' blocks"
-    super(strip)
   end
 end

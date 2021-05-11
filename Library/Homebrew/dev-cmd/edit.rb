@@ -1,4 +1,4 @@
-# typed: true
+# typed: strict
 # frozen_string_literal: true
 
 require "formula"
@@ -12,9 +12,7 @@ module Homebrew
   sig { returns(CLI::Parser) }
   def edit_args
     Homebrew::CLI::Parser.new do
-      usage_banner <<~EOS
-        `edit` [<formula>|<cask>]
-
+      description <<~EOS
         Open a <formula> or <cask> in the editor set by `EDITOR` or `HOMEBREW_EDITOR`,
         or open the Homebrew repository for editing if no formula is provided.
       EOS
@@ -23,7 +21,10 @@ module Homebrew
              description: "Treat all named arguments as formulae."
       switch "--cask", "--casks",
              description: "Treat all named arguments as casks."
+
       conflicts "--formula", "--cask"
+
+      named_args [:formula, :cask]
     end
   end
 
@@ -31,25 +32,23 @@ module Homebrew
   def edit
     args = edit_args.parse
 
-    only = :formula if args.formula? && !args.cask?
-    only = :cask if args.cask? && !args.formula?
-
     unless (HOMEBREW_REPOSITORY/".git").directory?
-      raise <<~EOS
+      odie <<~EOS
         Changes will be lost!
         The first time you `brew update`, all local changes will be lost; you should
         thus `brew update` before you `brew edit`!
       EOS
     end
 
-    paths = args.named.to_paths(only: only).select do |path|
+    paths = args.named.to_paths.select do |path|
       next path if path.exist?
 
       raise UsageError, "#{path} doesn't exist on disk. " \
-                        "Run #{Formatter.identifier("brew create $URL")} to create a new Formula!"
+                        "Run #{Formatter.identifier("brew create --set-name #{path.basename} $URL")} " \
+                        "to create a new formula!"
     end.presence
 
-    # If no brews are listed, open the project root in an editor.
+    # If no formulae are listed, open the project root in an editor.
     paths ||= [HOMEBREW_REPOSITORY]
 
     exec_editor(*paths)

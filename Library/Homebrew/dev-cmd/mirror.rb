@@ -1,4 +1,4 @@
-# typed: false
+# typed: true
 # frozen_string_literal: true
 
 require "bintray"
@@ -12,9 +12,7 @@ module Homebrew
   sig { returns(CLI::Parser) }
   def mirror_args
     Homebrew::CLI::Parser.new do
-      usage_banner <<~EOS
-        `mirror` <formula>
-
+      description <<~EOS
         Reupload the stable URL of a formula to Bintray for use as a mirror.
       EOS
       flag   "--bintray-org=",
@@ -24,13 +22,16 @@ module Homebrew
       switch "--no-publish",
              description: "Upload to Bintray, but don't publish."
 
-      min_named :formula
+      named_args :formula, min: 1
+
       hide_from_man_page!
     end
   end
 
   def mirror
     args = mirror_args.parse
+
+    odeprecated "brew mirror (Bintray will be shut down on 1st May 2021)"
 
     bintray_org = args.bintray_org || "homebrew"
     bintray_repo = args.bintray_repo || "mirror"

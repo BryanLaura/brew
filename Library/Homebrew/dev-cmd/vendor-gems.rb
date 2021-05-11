@@ -12,16 +12,14 @@ module Homebrew
   sig { returns(CLI::Parser) }
   def vendor_gems_args
     Homebrew::CLI::Parser.new do
-      usage_banner <<~EOS
-        `vendor-gems`
-
+      description <<~EOS
         Install and commit Homebrew's vendored gems.
       EOS
 
       comma_array "--update",
                   description: "Update all vendored Gems to the latest version."
 
-      max_named 0
+      named_args :none
     end
   end
 

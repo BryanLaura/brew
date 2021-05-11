@@ -14,9 +14,7 @@ module Homebrew
   sig { returns(CLI::Parser) }
   def __env_args
     Homebrew::CLI::Parser.new do
-      usage_banner <<~EOS
-        `--env` [<options>] [<formula>]
-
+      description <<~EOS
         Summarise Homebrew's build environment as a plain list.
 
         If the command's output is sent through a pipe and no shell is specified,
@@ -27,14 +25,17 @@ module Homebrew
                           "or `--shell=auto` to detect the current shell."
       switch "--plain",
              description: "Generate plain output even when piped."
+
+      named_args :formula
     end
   end
 
+  sig { void }
   def __env
     args = __env_args.parse
 
-    ENV.activate_extensions!(env: args.env)
-    ENV.deps = args.named.to_formulae if superenv?(args.env)
+    ENV.activate_extensions!
+    ENV.deps = args.named.to_formulae if superenv?(nil)
     ENV.setup_build_environment
 
     shell = if args.plain?
@@ -51,7 +52,7 @@ module Homebrew
       BuildEnvironment.dump ENV
     else
       BuildEnvironment.keys(ENV).each do |key|
-        puts Utils::Shell.export_value(key, ENV[key], shell)
+        puts Utils::Shell.export_value(key, ENV.fetch(key), shell)
       end
     end
   end

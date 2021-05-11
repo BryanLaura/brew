@@ -21,6 +21,11 @@ SimpleCov.start do
     # be quiet, the parent process will be in charge of output and checking coverage totals
     SimpleCov.print_error_status = false
   end
+  excludes = ["test", "vendor"]
+  subdirs = Dir.chdir(SimpleCov.root) { Pathname.glob("*") }
+               .reject { |p| p.extname == ".rb" || excludes.include?(p.to_s) }
+               .map { |p| "#{p}/**/*.rb" }.join(",")
+  files = "#{SimpleCov.root}/{#{subdirs},*.rb}"
 
   if ENV["HOMEBREW_INTEGRATION_TEST"]
     # This needs a unique name so it won't be ovewritten
@@ -29,30 +34,27 @@ SimpleCov.start do
     # be quiet, the parent process will be in charge of output and checking coverage totals
     SimpleCov.print_error_status = false
 
-    at_exit do
-      exit_code = $ERROR_INFO.nil? ? 0 : $ERROR_INFO.status
-      $stdout.reopen("/dev/null")
-
+    SimpleCov.at_exit do
       # Just save result, but don't write formatted output.
-      coverage_result = Coverage.result
-      # TODO: this method is private, find a better way.
-      SimpleCov.send(:add_not_loaded_files, coverage_result)
+      coverage_result = Coverage.result.dup
+      Dir[files].each do |file|
+        absolute_path = File.expand_path(file)
+        coverage_result[absolute_path] ||= SimpleCov::SimulateCoverage.call(absolute_path)
+      end
       simplecov_result = SimpleCov::Result.new(coverage_result)
       SimpleCov::ResultMerger.store_result(simplecov_result)
 
-      exit! exit_code
+      # If an integration test raises a `SystemExit` exception on exit,
+      # exit immediately using the same status code to avoid reporting
+      # an error when expecting a non-successful exit status.
+      raise if $ERROR_INFO.is_a?(SystemExit)
     end
   else
     command_name "#{command_name} (#{$PROCESS_ID})"
 
-    excludes = ["test", "vendor"]
-    subdirs = Dir.chdir(SimpleCov.root) { Dir.glob("*") }
-                 .reject { |d| d.end_with?(".rb") || excludes.include?(d) }
-                 .map { |d| "#{d}/**/*.rb" }.join(",")
-
     # Not using this during integration tests makes the tests 4x times faster
     # without changing the coverage.
-    track_files "#{SimpleCov.root}/{#{subdirs},*.rb}"
+    track_files files
   end
 
   add_filter %r{^/build.rb$}

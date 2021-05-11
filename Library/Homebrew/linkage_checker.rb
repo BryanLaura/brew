@@ -68,16 +68,6 @@ class LinkageChecker
     display_items "Broken dependencies", @broken_deps, puts_output: puts_output
     display_items "Unwanted system libraries", @unwanted_system_dylibs, puts_output: puts_output
     display_items "Conflicting libraries", @version_conflict_deps, puts_output: puts_output
-
-    if @broken_dylibs.empty?
-      puts "No broken library linkage detected"
-    elsif unexpected_broken_dylibs.empty?
-      puts "No unexpected broken library linkage detected."
-    else
-      puts "Unexpected missing library linkage detected"
-    end
-
-    puts "Unexpected non-missing linkage detected" if unexpected_present_dylibs.present?
   end
 
   sig { returns(T::Boolean) }
@@ -222,9 +212,8 @@ class LinkageChecker
   def check_formula_deps
     filter_out = proc do |dep|
       next true if dep.build?
-      next false unless dep.optional? || dep.recommended?
 
-      formula.build.without?(dep)
+      (dep.optional? || dep.recommended?) && formula.build.without?(dep)
     end
 
     declared_deps_full_names = formula.deps
@@ -280,9 +269,9 @@ class LinkageChecker
 
   def sort_by_formula_full_name!(arr)
     arr.sort! do |a, b|
-      if a.include?("/") && !b.include?("/")
+      if a.include?("/") && b.exclude?("/")
         1
-      elsif !a.include?("/") && b.include?("/")
+      elsif a.exclude?("/") && b.include?("/")
         -1
       else
         a <=> b
@@ -295,10 +284,12 @@ class LinkageChecker
   def harmless_broken_link?(dylib)
     # libgcc_s_* is referenced by programs that use the Java Service Wrapper,
     # and is harmless on x86(_64) machines
-    [
+    return true if [
       "/usr/lib/libgcc_s_ppc64.1.dylib",
       "/opt/local/lib/libgcc/libgcc_s.1.dylib",
     ].include?(dylib)
+
+    dylib.start_with?("/System/Library/Frameworks/")
   end
 
   # Display a list of things.

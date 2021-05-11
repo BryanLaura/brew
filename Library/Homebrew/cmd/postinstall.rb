@@ -1,4 +1,4 @@
-# typed: false
+# typed: true
 # frozen_string_literal: true
 
 require "sandbox"
@@ -13,13 +13,11 @@ module Homebrew
   sig { returns(CLI::Parser) }
   def postinstall_args
     Homebrew::CLI::Parser.new do
-      usage_banner <<~EOS
-        `postinstall` <formula>
-
+      description <<~EOS
         Rerun the post-install steps for <formula>.
       EOS
 
-      min_named :keg
+      named_args :installed_formula, min: 1
     end
   end
 

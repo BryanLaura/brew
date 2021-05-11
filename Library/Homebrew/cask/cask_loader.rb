@@ -115,7 +115,7 @@ module Cask
         path.dirname.mkpath
 
         begin
-          ohai "Downloading #{url}."
+          ohai "Downloading #{url}"
           curl_download url, to: path
         rescue ErrorDuringExecution
           raise CaskUnavailableError.new(token, "Failed to download #{Formatter.url(url)}.")
@@ -157,7 +157,7 @@ module Cask
       end
 
       def load(config:)
-        tap.install unless tap.installed?
+        raise TapCaskUnavailableError.new(tap, token) unless tap.installed?
 
         super
       end

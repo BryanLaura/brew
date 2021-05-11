@@ -26,9 +26,20 @@ class Caveats
       f.build = build
     end
     caveats << keg_only_text
-    caveats << function_completion_caveats(:bash)
-    caveats << function_completion_caveats(:zsh)
-    caveats << function_completion_caveats(:fish)
+
+    valid_shells = [:bash, :zsh, :fish].freeze
+    current_shell = Utils::Shell.preferred || Utils::Shell.parent
+    shells = if current_shell.present? &&
+                (shell_sym = current_shell.to_sym) &&
+                valid_shells.include?(shell_sym)
+      [shell_sym]
+    else
+      valid_shells
+    end
+    shells.each do |shell|
+      caveats << function_completion_caveats(shell)
+    end
+
     caveats << plist_caveats
     caveats << elisp_caveats
     caveats.compact.join("\n")
@@ -51,7 +62,7 @@ class Caveats
     if f.bin.directory? || f.sbin.directory?
       s << <<~EOS
 
-        If you need to have #{f.name} first in your PATH run:
+        If you need to have #{f.name} first in your PATH, run:
       EOS
       s << "  #{Utils::Shell.prepend_path_in_profile(f.opt_bin.to_s)}\n" if f.bin.directory?
       s << "  #{Utils::Shell.prepend_path_in_profile(f.opt_sbin.to_s)}\n" if f.sbin.directory?
@@ -102,7 +113,7 @@ class Caveats
 
     completion_installed = keg.completion_installed?(shell)
     functions_installed = keg.functions_installed?(shell)
-    return unless completion_installed || functions_installed
+    return if !completion_installed && !functions_installed
 
     installed = []
     installed << "completions" if completion_installed
@@ -141,13 +152,19 @@ class Caveats
   end
 
   def plist_caveats
-    return unless f.plist_manual
+    return if !f.plist_manual && !f.service?
+
+    command = if f.service?
+      f.service.command.join(" ")
+    else
+      f.plist_manual
+    end
 
     # Default to brew services not being supported. macOS overrides this behavior.
     <<~EOS
       #{Formatter.warning("Warning:")} #{f.name} provides a launchd plist which can only be used on macOS!
       You can manually execute the service instead with:
-        #{f.plist_manual}
+        #{command}
     EOS
   end
 

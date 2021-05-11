@@ -56,7 +56,7 @@ HOMEBREW_CELLAR = Pathname(EnvVar["HOMEBREW_CELLAR"]).freeze
 # Where downloads (bottles, source tarballs, etc.) are cached
 HOMEBREW_CACHE = Pathname(EnvVar["HOMEBREW_CACHE"]).freeze
 
-# Where brews installed via URL are cached
+# Where formulae installed via URL are cached
 HOMEBREW_CACHE_FORMULA = (HOMEBREW_CACHE/"Formula").freeze
 
 # Where build, postinstall, and test logs of formulae are written to
@@ -67,3 +67,9 @@ HOMEBREW_TEMP = Pathname(EnvVar["HOMEBREW_TEMP"]).yield_self do |tmp|
   tmp.mkpath unless tmp.exist?
   tmp.realpath
 end.freeze
+
+# The Ruby path and args to use for forked Ruby calls
+HOMEBREW_RUBY_EXEC_ARGS = [
+  RUBY_PATH,
+  ENV["HOMEBREW_RUBY_WARNINGS"],
+].freeze

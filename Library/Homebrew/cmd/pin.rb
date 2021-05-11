@@ -1,4 +1,4 @@
-# typed: false
+# typed: true
 # frozen_string_literal: true
 
 require "formula"
@@ -12,14 +12,12 @@ module Homebrew
   sig { returns(CLI::Parser) }
   def pin_args
     Homebrew::CLI::Parser.new do
-      usage_banner <<~EOS
-        `pin` <formula>
-
+      description <<~EOS
         Pin the specified <formula>, preventing them from being upgraded when
         issuing the `brew upgrade` <formula> command. See also `unpin`.
       EOS
 
-      min_named :formula
+      named_args :installed_formula, min: 1
     end
   end
 

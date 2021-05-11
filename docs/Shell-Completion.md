@@ -4,11 +4,13 @@ Homebrew comes with completion definitions for the `brew` command. Some packages
 
 `zsh`, `bash` and `fish` are currently supported.
 
-You must configure your shell to enable its completion support. This is because the Homebrew-managed completions are stored under `HOMEBREW_PREFIX` which your system shell may not be aware of, and since it is difficult to automatically configure `bash` and `zsh` completions in a robust manner, the Homebrew installer does not do it for you.
+You must then configure your shell to enable its completion support. This is because the Homebrew-managed completions are stored under `HOMEBREW_PREFIX` which your system shell may not be aware of, and since it is difficult to automatically configure `bash` and `zsh` completions in a robust manner, the Homebrew installer does not do it for you.
+
+Shell completions for external Homebrew commands are not automatically installed. To opt-in to using completions for external commands (if provided), they need to be linked to `HOMEBREW_PREFIX` by running `brew completions link`.
 
 ## Configuring Completions in `bash`
 
-To make Homebrew's completions available in `bash`, you must source the definitions as part of your shell's startup. Add the following to your `~/.bash_profile` (or, if it doesn't exist, `~/.profile):
+To make Homebrew's completions available in `bash`, you must source the definitions as part of your shell's startup. Add the following to your `~/.bash_profile` (or, if it doesn't exist, `~/.profile`):
 
 ```sh
 if type brew &>/dev/null; then
@@ -41,7 +43,11 @@ if type brew &>/dev/null; then
 fi
 ```
 
-This must be done before `compinit` is called. Note that if you are using Oh My Zsh, it will call `compinit` for you, so this must be done before you call `oh-my-zsh.sh`.
+This must be done before `compinit` is called. Note that if you are using Oh My Zsh, it will call `compinit` for you, so this must be done before you call `oh-my-zsh.sh`. This may be done by appending the following line to your `~/.zprofile` after Homebrew's initialization, instead of modifying your `~/.zshrc` as above:
+
+```sh
+FPATH=$(brew --prefix)/share/zsh/site-functions:$FPATH
+```
 
 You may also need to forcibly rebuild `zcompdump`:
 

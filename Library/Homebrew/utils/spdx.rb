@@ -29,7 +29,7 @@ module SPDX
   end
 
   def latest_tag
-    @latest_tag ||= GitHub.open_api(API_URL)["tag_name"]
+    @latest_tag ||= GitHub::API.open_rest(API_URL)["tag_name"]
   end
 
   def download_latest_license_data!(to: DATA_PATH)
@@ -39,8 +39,8 @@ module SPDX
   end
 
   def parse_license_expression(license_expression)
-    licenses = []
-    exceptions = []
+    licenses = T.let([], T::Array[T.any(String, Symbol)])
+    exceptions = T.let([], T::Array[String])
 
     case license_expression
     when String, Symbol
@@ -78,6 +78,7 @@ module SPDX
     return false if ALLOWED_LICENSE_SYMBOLS.include? license
     return false unless valid_license?(license)
 
+    license = license.delete_suffix "+"
     license_data["licenses"].none? do |spdx_license|
       spdx_license["licenseId"] == license && !spdx_license["isDeprecatedLicenseId"]
     end
@@ -110,7 +111,7 @@ module SPDX
       else
         bracket = false
         license_expression.each do |expression|
-          expressions.push license_expression_to_string(Hash[*expression], bracket: true)
+          expressions.push license_expression_to_string([expression].to_h, bracket: true)
         end
       end
 

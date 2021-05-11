@@ -1,4 +1,4 @@
-# typed: false
+# typed: true
 # frozen_string_literal: true
 
 require "open-uri"
@@ -19,6 +19,8 @@ module Homebrew
       #
       # @api public
       class PageMatch
+        extend T::Sig
+
         NICE_NAME = "Page match"
 
         # A priority of zero causes livecheck to skip the strategy. We do this
@@ -30,26 +32,41 @@ module Homebrew
         URL_MATCH_REGEX = %r{^https?://}i.freeze
 
         # Whether the strategy can be applied to the provided URL.
-        # PageMatch will technically match any HTTP URL but it's only usable
-        # when the formula has a `livecheck` block containing a regex.
-        #
-        # @param url [String] the URL to match against
-        # @return [Boolean]
+        # PageMatch will technically match any HTTP URL but is only
+        # usable with a `livecheck` block containing a regex.
+        sig { params(url: String).returns(T::Boolean) }
         def self.match?(url)
           URL_MATCH_REGEX.match?(url)
         end
 
-        # Fetches the content at the URL, uses the regex to match text, and
-        # returns an array of unique matches.
+        # Uses the regex to match text in the content or, if a block is
+        # provided, passes the page content to the block to handle matching.
+        # With either approach, an array of unique matches is returned.
         #
-        # @param url [String] the URL of the content to check
+        # @param content [String] the page content to check
         # @param regex [Regexp] a regex used for matching versions in the
         #   content
         # @return [Array]
-        def self.page_matches(url, regex)
-          page = URI.parse(url).open.read
-          matches = page.scan(regex)
-          matches.map(&:first).uniq
+        def self.page_matches(content, regex, &block)
+          if block
+            case (value = block.call(content, regex))
+            when String
+              return [value]
+            when Array
+              return value
+            else
+              raise TypeError, "Return value of `strategy :page_match` block must be a string or array of strings."
+            end
+          end
+
+          content.scan(regex).map do |match|
+            case match
+            when String
+              match
+            else
+              match.first
+            end
+          end.uniq
         end
 
         # Checks the content at the URL for new versions, using the provided
@@ -57,12 +74,32 @@ module Homebrew
         #
         # @param url [String] the URL of the content to check
         # @param regex [Regexp] a regex used for matching versions in content
+        # @param provided_content [String] page content to use in place of
+        #   fetching via Strategy#page_content
         # @return [Hash]
-        def self.find_versions(url, regex)
+        sig {
+          params(
+            url:              String,
+            regex:            T.nilable(Regexp),
+            cask:             T.nilable(Cask::Cask),
+            provided_content: T.nilable(String),
+            block:            T.nilable(T.proc.params(arg0: String).returns(T.any(T::Array[String], String))),
+          ).returns(T::Hash[Symbol, T.untyped])
+        }
+        def self.find_versions(url, regex, cask: nil, provided_content: nil, &block)
           match_data = { matches: {}, regex: regex, url: url }
 
-          page_matches(url, regex).each do |match|
-            match_data[:matches][match] = Version.new(match)
+          content = if provided_content.is_a?(String)
+            match_data[:cached] = true
+            provided_content
+          else
+            match_data.merge!(Strategy.page_content(url))
+            match_data[:content]
+          end
+          return match_data if content.blank?
+
+          page_matches(content, regex, &block).each do |match_text|
+            match_data[:matches][match_text] = Version.new(match_text)
           end
 
           match_data

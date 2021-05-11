@@ -11,8 +11,6 @@ RSpec/SubjectStub:
   Enabled: false
 
 # TODO: try to enable these
-RSpec/ContextWording:
-  Enabled: false
 RSpec/DescribeClass:
   Enabled: false
 RSpec/LeakyConstantDeclaration:
@@ -20,8 +18,6 @@ RSpec/LeakyConstantDeclaration:
 RSpec/MessageSpies:
   Enabled: false
 RSpec/RepeatedDescription:
-  Enabled: false
-RSpec/RepeatedExampleGroupDescription:
   Enabled: false
 RSpec/StubbedMock:
   Enabled: false
@@ -35,3 +31,7 @@ RSpec/NestedGroups:
   Max: 5
 RSpec/MultipleMemoizedHelpers:
   Max: 12
+
+# Annoying to have these autoremoved.
+RSpec/Focus:
+  AutoCorrect: false

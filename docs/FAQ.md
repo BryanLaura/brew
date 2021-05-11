@@ -45,6 +45,9 @@ When automatic `brew cleanup` is disabled, if you uninstall a formula, it will o
 
 In this case, to remove a formula entirely, you may run `brew uninstall --force <formula>`. Be careful as this is a destructive operation.
 
+## Why does `brew upgrade <formula>` also upgrade a bunch of other stuff?
+Homebrew doesn't support arbitrary mixing and matching of formula versions, so everything a formula depends on, and everything that depends on it in turn, needs to be upgraded to the latest version as that's the only combination of formulae we test. As a consequence any given `upgrade` or `install` command can upgrade many other (seemingly unrelated) formulae, if something important like `python` or `openssl` also needed an upgrade.
+
 ## Where does stuff get downloaded?
 
     brew --cache
@@ -60,7 +63,7 @@ Read our [contribution guidelines](https://github.com/Homebrew/brew/blob/HEAD/CO
 ## Why do you compile everything?
 Homebrew provides pre-compiled versions for many formulae. These
 pre-compiled versions are referred to as [bottles](Bottles.md) and are available
-at <https://bintray.com/homebrew/bottles>.
+at <https://github.com/Homebrew/homebrew-core/packages>.
 
 If available, bottled binaries will be used by default except under the
 following conditions:
@@ -85,6 +88,10 @@ cd $(brew --repository)
 hub pull someone_else
 ```
 
+## Why should I install Homebrew in the default location?
+
+Homebrew's pre-built binary packages (known as [bottles](Bottles.md)) of many packages can only be used if you install in the default installation prefix, otherwise they have to be built from source. Building from source takes a long time, is prone to fail, and is not supported. Do yourself a favour and install to the default prefix so that you can use our pre-built binary packages. The default prefix is `/usr/local` for macOS on Intel, `/opt/homebrew` for macOS on ARM, and `/home/linuxbrew/.linuxbrew` for Linux. *Pick another prefix at your peril!*
+
 ## Why does Homebrew prefer I install to `/usr/local`?
 
 1.  **It’s easier**<br>`/usr/local/bin` is already in your
@@ -101,6 +108,10 @@ hub pull someone_else
 **If you plan to install gems that depend on formulae then save yourself a bunch of hassle and install to `/usr/local`!**
 
 It is not always straightforward to tell `gem` to look in non-standard directories for headers and libraries. If you choose `/usr/local`, many things will "just work".
+
+## Why is the default installation prefix `/home/linuxbrew/.linuxbrew` on Linux?
+
+The prefix `/home/linuxbrew/.linuxbrew` was chosen so that users without admin access can ask an admin to create a `linuxbrew` role account and still benefit from precompiled binaries. If you do not yourself have admin privileges, consider asking your admin staff to create a `linuxbrew` role account for you with home directory `/home/linuxbrew`.
 
 ## Why does Homebrew say sudo is bad?
 **tl;dr** Sudo is dangerous, and you installed TextMate.app without sudo
@@ -182,3 +193,51 @@ You can still link in the formula if you need to with `brew link <formula>`, tho
 ## How can I specify different configure arguments for a formula?
 `brew edit <formula>` and edit the formula. Currently there is no
 other way to do this.
+
+
+## The app can’t be opened because it is from an unidentified developer
+Chances are that certain apps will give you a popup message like this:
+
+<img src="https://i.imgur.com/CnEEATG.png" width="532" alt="Gatekeeper message">
+
+This is a [security feature from Apple](https://support.apple.com/en-us/HT202491). The single most important thing to know is that **you can allow individual apps to be exempt from that feature.** This allows the app to run while the rest of the system remains under protection.
+
+**Always leave system-wide protection enabled,** and disable it only for specific apps as needed.
+
+If you are sure you want to trust the app, you can disable protection for that app by right-clicking its icon and choosing `Open`:
+
+<img src="https://i.imgur.com/69xc2WK.png" width="312" alt="Right-click the app and choose Open">
+
+Finally, click the `Open` button if you want macOS to permanently allow the app to run on this Mac. **Don’t do this unless you’re sure you trust the app.**
+
+<img src="https://i.imgur.com/xppa4Qv.png" width="532" alt="Gatekeeper message">
+
+Alternatively, you may provide the [`--no-quarantine` flag](https://github.com/Homebrew/homebrew-cask/blob/HEAD/USAGE.md#options) at install time to not add this feature to a specific app.
+
+
+## Why some apps aren’t included in `upgrade`
+After running `brew upgrade`, you may notice some casks you think should be upgrading, aren’t.
+
+As you’re likely aware, a lot of macOS software can upgrade itself:
+
+<img src="https://upload.wikimedia.org/wikipedia/commons/c/c0/Sparkle_Test_App_Software_Update.png" width="532" alt="Sparkle update window">
+
+That could cause conflicts when used in tandem with Homebrew Cask’s `upgrade` mechanism.
+
+If you upgrade software through it’s built-in mechanism, that happens without Homebrew Cask’s knowledge so both versions get out of sync. If you then upgraded through Homebrew Cask and we have a lower version on the software on record, you’d get a downgrade.
+
+There are a few ideas to fix this problem:
+
+* Try to prevent the software’s automated updates. That won’t be a universal solution and may cause it to break. Most software on Homebrew Cask is closed-source, so we’d be guessing. This is also why pinning casks to a version isn’t available.
+* Try to extract the installed software’s version and compare it to the cask, deciding what to do at that time. That’s a complicated solution that breaks other parts of our methodology, such as using versions to interpolate in `url`s (a definite win for maintainability). That solution also isn’t universal, as many software developers are inconsistent in their versioning schemes (and app bundles are meant to have two version strings) and it doesn’t work for all types of software we support.
+
+So we let software be. Installing it with Homebrew Cask should make it behave the same as if you had installed it manually. But we also want to support software that does not auto-upgrade, so we add [`auto_updates true`](https://github.com/Homebrew/homebrew-cask/blob/62c0495b254845a481dacac6ea7c8005e27a3fb0/Casks/alfred.rb#L10) to casks of software that can do it, which excludes them from `brew upgrade`.
+
+Casks which use [`version :latest`](https://github.com/Homebrew/homebrew-cask/blob/HEAD/doc/cask_language_reference/stanzas/version.md#version-latest) are also excluded, because we have no way to track the version they’re in. It helps to ask the developers of such software to provide versioned releases (i.e. have the version in the path of the download `url`).
+
+If you still want to force software to be upgraded via Homebrew Cask, you can:
+
+* Reference it specifically in the `upgrade` command: `brew upgrade {{cask_name}}`.
+* Use the `--greedy` flag: `brew upgrade --greedy`.
+
+Refer to the `upgrade` section of the `brew` manual page by running `man -P 'less --pattern "^ {3}upgrade"' brew`.

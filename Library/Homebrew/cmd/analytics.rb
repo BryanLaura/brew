@@ -1,4 +1,4 @@
-# typed: false
+# typed: true
 # frozen_string_literal: true
 
 require "cli/parser"
@@ -11,9 +11,7 @@ module Homebrew
   sig { returns(CLI::Parser) }
   def analytics_args
     Homebrew::CLI::Parser.new do
-      usage_banner <<~EOS
-        `analytics` [<subcommand>]
-
+      description <<~EOS
         Control Homebrew's anonymous aggregate user behaviour analytics.
         Read more at <https://docs.brew.sh/Analytics>.
 
@@ -27,7 +25,7 @@ module Homebrew
         Regenerate the UUID used for Homebrew's analytics.
       EOS
 
-      max_named 1
+      named_args %w[state on off regenerate-uuid], max: 1
     end
   end
 

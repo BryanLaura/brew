@@ -2,29 +2,23 @@
 # frozen_string_literal: true
 
 class Formula
-  undef on_linux
-
-  def on_linux(&block)
-    raise "No block content defined for on_linux block" unless block
-
-    yield
-  end
-
   undef shared_library
+  undef rpath
 
   def shared_library(name, version = nil)
-    "#{name}.so#{"." unless version.nil?}#{version}"
+    suffix = if version == "*" || (name == "*" && version.blank?)
+      "{,.*}"
+    elsif version.present?
+      ".#{version}"
+    end
+    "#{name}.so#{suffix}"
+  end
+
+  def rpath
+    "'$ORIGIN/../lib'"
   end
 
   class << self
-    undef on_linux
-
-    def on_linux(&block)
-      raise "No block content defined for on_linux block" unless block
-
-      yield
-    end
-
     undef ignore_missing_libraries
 
     def ignore_missing_libraries(*libs)

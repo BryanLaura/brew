@@ -69,22 +69,22 @@ module Cask
       end
 
       caveat :unsigned_accessibility do |access = "Accessibility"|
-        # access: the category in System Preferences -> Security & Privacy -> Privacy the app requires.
+        # access: the category in System Preferences > Security & Privacy > Privacy the app requires.
 
         <<~EOS
           #{@cask} is not signed and requires Accessibility access,
           so you will need to re-grant Accessibility access every time the app is updated.
 
           Enable or re-enable it in:
-            System Preferences → Security & Privacy → Privacy -> #{access}
-          To re-enable untick and retick #{@cask}.app.
+            System Preferences → Security & Privacy → Privacy → #{access}
+          To re-enable, untick and retick #{@cask}.app.
         EOS
       end
 
       caveat :path_environment_variable do |path|
         <<~EOS
           To use #{@cask}, you may need to add the #{path} directory
-          to your PATH environment variable, e.g. (for bash shell):
+          to your PATH environment variable, e.g. (for Bash shell):
             export PATH=#{path}:"$PATH"
         EOS
       end
@@ -92,7 +92,7 @@ module Cask
       caveat :zsh_path_helper do |path|
         <<~EOS
           To use #{@cask}, zsh users may need to add the following line to their
-          ~/.zprofile.  (Among other effects, #{path} will be added to the
+          ~/.zprofile. (Among other effects, #{path} will be added to the
           PATH environment variable):
             eval `/usr/libexec/path_helper -s`
         EOS
@@ -112,17 +112,17 @@ module Cask
         if java_version == :any
           <<~EOS
             #{@cask} requires Java. You can install the latest version with:
-              brew cask install adoptopenjdk
+              brew install --cask adoptopenjdk
           EOS
-        elsif java_version.include?("11") || java_version.include?("+")
+        elsif java_version.include?("+")
           <<~EOS
             #{@cask} requires Java #{java_version}. You can install the latest version with:
-              brew cask install adoptopenjdk
+              brew install --cask adoptopenjdk
           EOS
         else
           <<~EOS
             #{@cask} requires Java #{java_version}. You can install it with:
-              brew cask install homebrew/cask-versions/adoptopenjdk#{java_version}
+              brew install --cask homebrew/cask-versions/adoptopenjdk#{java_version}
           EOS
         end
       end

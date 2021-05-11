@@ -1,4 +1,4 @@
-# typed: false
+# typed: true
 # frozen_string_literal: true
 
 require "cli/parser"
@@ -12,9 +12,7 @@ module Homebrew
   sig { returns(CLI::Parser) }
   def update_python_resources_args
     Homebrew::CLI::Parser.new do
-      usage_banner <<~EOS
-        `update-python-resources` [<options>] <formula>
-
+      description <<~EOS
         Update versions for PyPI resource blocks in <formula>.
       EOS
       switch "-p", "--print-only",
@@ -26,8 +24,15 @@ module Homebrew
       flag   "--version=",
              description: "Use the specified <version> when finding resources for <formula>. "\
                           "If no version is specified, the current version for <formula> will be used."
+      flag   "--package-name=",
+             description: "Use the specified <package-name> when finding resources for <formula>. "\
+                          "If no package name is specified, it will be inferred from the formula's stable URL."
+      comma_array "--extra-packages=",
+                  description: "Include these additional packages when finding resources."
+      comma_array "--exclude-packages=",
+                  description: "Exclude these packages when finding resources."
 
-      min_named :formula
+      named_args :formula, min: 1
     end
   end
 
@@ -35,7 +40,13 @@ module Homebrew
     args = update_python_resources_args.parse
 
     args.named.to_formulae.each do |formula|
-      PyPI.update_python_resources! formula, args.version, print_only: args.print_only?, silent: args.silent?,
+      PyPI.update_python_resources! formula,
+                                    version:                  args.version,
+                                    package_name:             args.package_name,
+                                    extra_packages:           args.extra_packages,
+                                    exclude_packages:         args.exclude_packages,
+                                    print_only:               args.print_only?,
+                                    silent:                   args.silent?,
                                     ignore_non_pypi_packages: args.ignore_non_pypi_packages?
     end
   end

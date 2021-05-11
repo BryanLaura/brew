@@ -1,4 +1,4 @@
-# typed: false
+# typed: true
 # frozen_string_literal: true
 
 module Homebrew
@@ -26,6 +26,7 @@ module Homebrew
     def audit
       audit_version
       audit_download_strategy
+      audit_checksum
       audit_urls
       self
     end
@@ -72,6 +73,13 @@ module Homebrew
       problem "Redundant :using value in URL"
     end
 
+    def audit_checksum
+      return if spec_name == :head
+      return unless DownloadStrategyDetector.detect(url, using) <= CurlDownloadStrategy
+
+      problem "Checksum is missing" if checksum.blank?
+    end
+
     def self.curl_openssl_and_deps
       @curl_openssl_and_deps ||= begin
         formulae_names = ["curl", "openssl"]
@@ -93,11 +101,7 @@ module Homebrew
 
         strategy = DownloadStrategyDetector.detect(url, using)
         if strategy <= CurlDownloadStrategy && !url.start_with?("file")
-          # A `brew mirror`'ed URL is usually not yet reachable at the time of
-          # pull request.
-          next if url.match?(%r{^https://dl.bintray.com/homebrew/mirror/})
-
-          if http_content_problem = curl_check_http_content(url)
+          if (http_content_problem = curl_check_http_content(url, "source URL", specs: specs))
             problem http_content_problem
           end
         elsif strategy <= GitDownloadStrategy

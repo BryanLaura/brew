@@ -4,11 +4,11 @@
 require "cask/audit"
 
 describe Cask::Audit, :cask do
-  def include_msg?(messages, msg)
+  def include_msg?(problems, msg)
     if msg.is_a?(Regexp)
-      Array(messages).any? { |m| m =~ msg }
+      Array(problems).any? { |problem| problem[:message] =~ msg }
     else
-      Array(messages).include?(msg)
+      Array(problems).any? { |problem| problem[:message] == msg }
     end
   end
 
@@ -37,7 +37,6 @@ describe Cask::Audit, :cask do
   let(:token_conflicts) { nil }
   let(:audit) {
     described_class.new(cask, online:          online,
-
                               strict:          strict,
                               new_cask:        new_cask,
                               token_conflicts: token_conflicts)
@@ -107,7 +106,7 @@ describe Cask::Audit, :cask do
   end
 
   describe "#run!" do
-    subject { audit.run! }
+    subject(:run) { audit.run! }
 
     def tmp_cask(name, text)
       path = Pathname.new "#{dir}/#{name}.rb"
@@ -150,7 +149,7 @@ describe Cask::Audit, :cask do
         let(:cask_token) { "Upper-Case" }
 
         it "fails" do
-          expect(subject).to fail_with(/lowercase/)
+          expect(run).to fail_with(/lowercase/)
         end
       end
 
@@ -158,7 +157,7 @@ describe Cask::Audit, :cask do
         let(:cask_token) { "ascii⌘" }
 
         it "fails" do
-          expect(subject).to fail_with(/contains non-ascii characters/)
+          expect(run).to fail_with(/contains non-ascii characters/)
         end
       end
 
@@ -166,7 +165,7 @@ describe Cask::Audit, :cask do
         let(:cask_token) { "app++" }
 
         it "fails" do
-          expect(subject).to fail_with(/\+ should be replaced by -plus-/)
+          expect(run).to fail_with(/\+ should be replaced by -plus-/)
         end
       end
 
@@ -174,7 +173,7 @@ describe Cask::Audit, :cask do
         let(:cask_token) { "app@stuff" }
 
         it "fails" do
-          expect(subject).to fail_with(/@ should be replaced by -at-/)
+          expect(run).to fail_with(/@ should be replaced by -at-/)
         end
       end
 
@@ -182,7 +181,7 @@ describe Cask::Audit, :cask do
         let(:cask_token) { "app stuff" }
 
         it "fails" do
-          expect(subject).to fail_with(/whitespace should be replaced by hyphens/)
+          expect(run).to fail_with(/whitespace should be replaced by hyphens/)
         end
       end
 
@@ -190,7 +189,7 @@ describe Cask::Audit, :cask do
         let(:cask_token) { "app_stuff" }
 
         it "fails" do
-          expect(subject).to fail_with(/underscores should be replaced by hyphens/)
+          expect(run).to fail_with(/underscores should be replaced by hyphens/)
         end
       end
 
@@ -198,7 +197,7 @@ describe Cask::Audit, :cask do
         let(:cask_token) { "app(stuff)" }
 
         it "fails" do
-          expect(subject).to fail_with(/alphanumeric characters and hyphens/)
+          expect(run).to fail_with(/alphanumeric characters and hyphens/)
         end
       end
 
@@ -206,7 +205,7 @@ describe Cask::Audit, :cask do
         let(:cask_token) { "app--stuff" }
 
         it "fails" do
-          expect(subject).to fail_with(/should not contain double hyphens/)
+          expect(run).to fail_with(/should not contain double hyphens/)
         end
       end
 
@@ -214,7 +213,7 @@ describe Cask::Audit, :cask do
         let(:cask_token) { "-app" }
 
         it "fails" do
-          expect(subject).to fail_with(/should not have leading or trailing hyphens/)
+          expect(run).to fail_with(/should not have leading or trailing hyphens/)
         end
       end
 
@@ -222,7 +221,7 @@ describe Cask::Audit, :cask do
         let(:cask_token) { "app-" }
 
         it "fails" do
-          expect(subject).to fail_with(/should not have leading or trailing hyphens/)
+          expect(run).to fail_with(/should not have leading or trailing hyphens/)
         end
       end
     end
@@ -232,14 +231,14 @@ describe Cask::Audit, :cask do
       let(:online) { false }
       let(:cask) do
         tmp_cask cask_token.to_s, <<~RUBY
-          cask '#{cask_token}' do
-            version '1.0'
-            sha256 '8dd95daa037ac02455435446ec7bc737b34567afe9156af7d20b2a83805c1d8a'
-            url "https://brew.sh/"
-            name 'Audit'
-            desc 'Cask for testing tokens'
-            homepage 'https://brew.sh/'
-            app 'Audit.app'
+          cask "#{cask_token}" do
+            version "1.0"
+            sha256 "8dd95daa037ac02455435446ec7bc737b34567afe9156af7d20b2a83805c1d8a"
+            url "https://brew.sh/v\#{version}.zip"
+            name "Audit"
+            desc "Cask for testing tokens"
+            homepage "https://brew.sh/"
+            app "Audit.app"
           end
         RUBY
       end
@@ -248,7 +247,7 @@ describe Cask::Audit, :cask do
         let(:cask_token) { "token.app" }
 
         it "fails" do
-          expect(subject).to fail_with(/token contains .app/)
+          expect(run).to fail_with(/token contains .app/)
         end
       end
 
@@ -258,13 +257,13 @@ describe Cask::Audit, :cask do
         it "fails if the cask is from an official tap" do
           allow(cask).to receive(:tap).and_return(Tap.fetch("homebrew/cask"))
 
-          expect(subject).to fail_with(/token contains version designation/)
+          expect(run).to fail_with(/token contains version designation/)
         end
 
         it "does not fail if the cask is from the `cask-versions` tap" do
           allow(cask).to receive(:tap).and_return(Tap.fetch("homebrew/cask-versions"))
 
-          expect(subject).to pass
+          expect(run).to pass
         end
       end
 
@@ -272,7 +271,7 @@ describe Cask::Audit, :cask do
         let(:cask_token) { "token-launcher" }
 
         it "fails" do
-          expect(subject).to fail_with(/token mentions launcher/)
+          expect(run).to fail_with(/token mentions launcher/)
         end
       end
 
@@ -280,7 +279,7 @@ describe Cask::Audit, :cask do
         let(:cask_token) { "token-desktop" }
 
         it "fails" do
-          expect(subject).to fail_with(/token mentions desktop/)
+          expect(run).to fail_with(/token mentions desktop/)
         end
       end
 
@@ -288,7 +287,7 @@ describe Cask::Audit, :cask do
         let(:cask_token) { "token-osx" }
 
         it "fails" do
-          expect(subject).to fail_with(/token mentions platform/)
+          expect(run).to fail_with(/token mentions platform/)
         end
       end
 
@@ -296,7 +295,7 @@ describe Cask::Audit, :cask do
         let(:cask_token) { "token-x86" }
 
         it "fails" do
-          expect(subject).to fail_with(/token mentions architecture/)
+          expect(run).to fail_with(/token mentions architecture/)
         end
       end
 
@@ -304,7 +303,7 @@ describe Cask::Audit, :cask do
         let(:cask_token) { "token-java" }
 
         it "fails" do
-          expect(subject).to fail_with(/cask token mentions framework/)
+          expect(run).to fail_with(/cask token mentions framework/)
         end
       end
 
@@ -312,7 +311,33 @@ describe Cask::Audit, :cask do
         let(:cask_token) { "java" }
 
         it "does not fail" do
-          expect(subject).to pass
+          expect(run).to pass
+        end
+      end
+
+      context "when cask token is in tap_migrations.json and" do
+        let(:cask_token) { "token-migrated" }
+        let(:tap) { Tap.fetch("homebrew/cask") }
+
+        before do
+          allow(tap).to receive(:tap_migrations).and_return({ cask_token => "homebrew/core" })
+          allow(cask).to receive(:tap).and_return(tap)
+        end
+
+        context "when `new_cask` is true" do
+          let(:new_cask) { true }
+
+          it "fails" do
+            expect(run).to fail_with("#{cask_token} is listed in tap_migrations.json")
+          end
+        end
+
+        context "when `new_cask` is false" do
+          let(:new_cask) { false }
+
+          it "does not fail" do
+            expect(run).to pass
+          end
         end
       end
     end
@@ -357,9 +382,9 @@ describe Cask::Audit, :cask do
 
       context "when cask locale is invalid" do
         it "error with invalid locale" do
-          expect(subject).to fail_with(/Locale 'ZH-CN' is invalid\./)
-          expect(subject).to fail_with(/Locale 'zh-' is invalid\./)
-          expect(subject).to fail_with(/Locale 'zh-cn' is invalid\./)
+          expect(run).to fail_with(/Locale 'ZH-CN' is invalid\./)
+          expect(run).to fail_with(/Locale 'zh-' is invalid\./)
+          expect(run).to fail_with(/Locale 'zh-cn' is invalid\./)
         end
       end
     end
@@ -588,58 +613,47 @@ describe Cask::Audit, :cask do
       end
     end
 
-    describe "hosting with appcast checks" do
-      let(:message) { /please add an appcast/ }
+    describe "hosting with livecheck checks" do
+      let(:message) { /please add a livecheck/ }
 
-      context "when the download does not use hosting with an appcast" do
+      context "when the download does not use hosting with a livecheck" do
         let(:cask_token) { "basic-cask" }
 
         it { is_expected.not_to fail_with(message) }
       end
 
-      context "when the download uses GitHub releases and has an appcast" do
-        let(:cask_token) { "github-with-appcast" }
-
-        it { is_expected.not_to fail_with(message) }
-      end
-
-      context "when the download uses GitHub releases and does not have an appcast" do
-        let(:cask_token) { "github-without-appcast" }
-
-        it { is_expected.to fail_with(message) }
-      end
-
-      context "when the download is hosted on SourceForge and has an appcast" do
+      context "when the download is hosted on SourceForge and has a livecheck" do
         let(:cask_token) { "sourceforge-with-appcast" }
 
         it { is_expected.not_to fail_with(message) }
       end
 
-      context "when the download is hosted on SourceForge and does not have an appcast" do
+      context "when the download is hosted on SourceForge and does not have a livecheck" do
         let(:cask_token) { "sourceforge-correct-url-format" }
+        let(:online) { true }
 
         it { is_expected.to fail_with(message) }
       end
 
-      context "when the download is hosted on DevMate and has an appcast" do
+      context "when the download is hosted on DevMate and has a livecheck" do
         let(:cask_token) { "devmate-with-appcast" }
 
         it { is_expected.not_to fail_with(message) }
       end
 
-      context "when the download is hosted on DevMate and does not have an appcast" do
+      context "when the download is hosted on DevMate and does not have a livecheck" do
         let(:cask_token) { "devmate-without-appcast" }
 
         it { is_expected.to fail_with(message) }
       end
 
-      context "when the download is hosted on HockeyApp and has an appcast" do
+      context "when the download is hosted on HockeyApp and has a livecheck" do
         let(:cask_token) { "hockeyapp-with-appcast" }
 
         it { is_expected.not_to fail_with(message) }
       end
 
-      context "when the download is hosted on HockeyApp and does not have an appcast" do
+      context "when the download is hosted on HockeyApp and does not have a livecheck" do
         let(:cask_token) { "hockeyapp-without-appcast" }
 
         it { is_expected.to fail_with(message) }
@@ -647,7 +661,7 @@ describe Cask::Audit, :cask do
     end
 
     describe "latest with appcast checks" do
-      let(:message) { "Casks with an appcast should not use version :latest" }
+      let(:message) { "Casks with an `appcast` should not use `version :latest`." }
 
       context "when the Cask is :latest and does not have an appcast" do
         let(:cask_token) { "version-latest" }
@@ -675,14 +689,14 @@ describe Cask::Audit, :cask do
         it { is_expected.to pass }
       end
 
-      context "when the Cask is on the denylist" do
-        context "and it's in the official Homebrew tap" do
+      context "when the Cask is on the denylist and" do
+        context "when it's in the official Homebrew tap" do
           let(:cask_token) { "adobe-illustrator" }
 
           it { is_expected.to fail_with(/#{cask_token} is not allowed: \w+/) }
         end
 
-        context "and it isn't in the official Homebrew tap" do
+        context "when it isn't in the official Homebrew tap" do
           let(:cask_token) { "pharo" }
 
           it { is_expected.to pass }
@@ -691,7 +705,7 @@ describe Cask::Audit, :cask do
     end
 
     describe "latest with auto_updates checks" do
-      let(:message) { "Casks with `version :latest` should not use `auto_updates`" }
+      let(:message) { "Casks with `version :latest` should not use `auto_updates`." }
 
       context "when the Cask is :latest and does not have auto_updates" do
         let(:cask_token) { "version-latest" }
@@ -756,18 +770,24 @@ describe Cask::Audit, :cask do
       context "with relative target" do
         let(:cask_token) { "generic-artifact-relative-target" }
 
-        it { is_expected.to fail_with(/target must be absolute path for Generic Artifact/) }
+        it { is_expected.to fail_with(/target must be.*absolute/) }
+      end
+
+      context "with user-relative target" do
+        let(:cask_token) { "generic-artifact-user-relative-target" }
+
+        it { is_expected.not_to fail_with(/target must be.*absolute/) }
       end
 
       context "with absolute target" do
         let(:cask_token) { "generic-artifact-absolute-target" }
 
-        it { is_expected.not_to fail_with(/target required for Generic Artifact/) }
+        it { is_expected.not_to fail_with(/target must be.*absolute/) }
       end
     end
 
     describe "url checks" do
-      context "given a block" do
+      context "with a block" do
         let(:cask_token) { "booby-trap" }
 
         context "when loading the cask" do
@@ -776,9 +796,19 @@ describe Cask::Audit, :cask do
           end
         end
 
-        context "when doing the audit" do
+        context "when doing an offline audit" do
+          let(:online) { false }
+
+          it "does not evaluate the block" do
+            expect(run).not_to pass
+          end
+        end
+
+        context "when doing and online audit" do
+          let(:online) { true }
+
           it "evaluates the block" do
-            expect(subject).to fail_with(/Boom/)
+            expect(run).to fail_with(/Boom/)
           end
         end
       end
@@ -793,7 +823,7 @@ describe Cask::Audit, :cask do
 
         it "warns about duplicates" do
           expect(audit).to receive(:core_formula_names).and_return(formula_names)
-          expect(subject).to warn_with(/possible duplicate/)
+          expect(run).to warn_with(/possible duplicate/)
         end
       end
 
@@ -817,12 +847,12 @@ describe Cask::Audit, :cask do
 
       it "when download and verification succeed it does not fail" do
         expect(download_double).to receive(:fetch)
-        expect(subject).to pass
+        expect(run).to pass
       end
 
       it "when download fails it fails" do
         expect(download_double).to receive(:fetch).and_raise(StandardError.new(message))
-        expect(subject).to fail_with(/#{message}/)
+        expect(run).to fail_with(/#{message}/)
       end
     end
 
@@ -831,7 +861,7 @@ describe Cask::Audit, :cask do
 
       it "fails the audit" do
         expect(cask).to receive(:tap).and_raise(StandardError.new)
-        expect(subject).to fail_with(/exception while auditing/)
+        expect(run).to fail_with(/exception while auditing/)
       end
     end
 
@@ -854,7 +884,7 @@ describe Cask::Audit, :cask do
         let(:new_cask) { true }
 
         it "fails" do
-          expect(subject).to fail_with(/should have a description/)
+          expect(run).to fail_with(/should have a description/)
         end
       end
 
@@ -862,7 +892,7 @@ describe Cask::Audit, :cask do
         let(:new_cask) { false }
 
         it "warns" do
-          expect(subject).to warn_with(/should have a description/)
+          expect(run).to warn_with(/should have a description/)
         end
       end
     end
@@ -871,20 +901,125 @@ describe Cask::Audit, :cask do
       let(:cask_token) { "with-description" }
       let(:cask) do
         tmp_cask cask_token.to_s, <<~RUBY
-          cask '#{cask_token}' do
-            version '1.0'
-            sha256 '8dd95daa037ac02455435446ec7bc737b34567afe9156af7d20b2a83805c1d8a'
-            url "https://brew.sh/"
-            name 'Audit'
-            desc 'Cask Auditor'
-            homepage 'https://brew.sh/'
-            app 'Audit.app'
+          cask "#{cask_token}" do
+            version "1.0"
+            sha256 "8dd95daa037ac02455435446ec7bc737b34567afe9156af7d20b2a83805c1d8a"
+            url "https://brew.sh/\#{version}.zip"
+            name "Audit"
+            desc "Cask Auditor"
+            homepage "https://brew.sh/"
+            app "Audit.app"
           end
         RUBY
       end
 
       it "passes" do
-        expect(subject).to pass
+        expect(run).to pass
+      end
+    end
+
+    context "when the url matches the homepage" do
+      let(:cask_token) { "foo" }
+      let(:cask) do
+        tmp_cask cask_token.to_s, <<~RUBY
+          cask '#{cask_token}' do
+            version '1.0'
+            sha256 '8dd95daa037ac02455435446ec7bc737b34567afe9156af7d20b2a83805c1d8a'
+            url 'https://foo.brew.sh/foo.zip'
+            name 'Audit'
+            desc 'Audit Description'
+            homepage 'https://foo.brew.sh'
+            app 'Audit.app'
+          end
+        RUBY
+      end
+
+      it { is_expected.to pass }
+    end
+
+    context "when the url does not match the homepage" do
+      let(:cask_token) { "foo" }
+      let(:cask) do
+        tmp_cask cask_token.to_s, <<~RUBY
+          cask '#{cask_token}' do
+            version "1.8.0_72,8.13.0.5"
+            sha256 "8dd95daa037ac02455435446ec7bc737b34567afe9156af7d20b2a83805c1d8a"
+            url "https://brew.sh/foo-\#{version.after_comma}.zip"
+            name "Audit"
+            desc "Audit Description"
+            homepage "https://foo.example.org"
+            app "Audit.app"
+          end
+        RUBY
+      end
+
+      it { is_expected.to fail_with(/a 'verified' parameter has to be added/) }
+    end
+
+    context "when the url does not match the homepage with verified" do
+      let(:cask_token) { "foo" }
+      let(:cask) do
+        tmp_cask cask_token.to_s, <<~RUBY
+          cask "#{cask_token}" do
+            version "1.8.0_72,8.13.0.5"
+            sha256 "8dd95daa037ac02455435446ec7bc737b34567afe9156af7d20b2a83805c1d8a"
+            url "https://brew.sh/foo-\#{version.after_comma}.zip", verified: "brew.sh"
+            name "Audit"
+            desc "Audit Description"
+            homepage "https://foo.example.org"
+            app "Audit.app"
+          end
+        RUBY
+      end
+
+      it { is_expected.to pass }
+    end
+
+    context "when there is no homepage" do
+      let(:cask_token) { "foo" }
+      let(:cask) do
+        tmp_cask cask_token.to_s, <<~RUBY
+          cask '#{cask_token}' do
+            version '1.8.0_72,8.13.0.5'
+            sha256 '8dd95daa037ac02455435446ec7bc737b34567afe9156af7d20b2a83805c1d8a'
+            url 'https://brew.sh/foo.zip'
+            name 'Audit'
+            desc 'Audit Description'
+            app 'Audit.app'
+          end
+        RUBY
+      end
+
+      it { is_expected.to fail_with(/a homepage stanza is required/) }
+    end
+
+    context "when url is lazy" do
+      let(:strict) { true }
+      let(:cask_token) { "with-lazy" }
+      let(:cask) do
+        tmp_cask cask_token.to_s, <<~RUBY
+          cask '#{cask_token}' do
+            version '1.8.0_72,8.13.0.5'
+            sha256 '8dd95daa037ac02455435446ec7bc737b34567afe9156af7d20b2a83805c1d8a'
+            url do
+              ['https://brew.sh/foo.zip', {referer: 'https://example.com', cookies: {'foo' => 'bar'}}]
+            end
+            name 'Audit'
+            desc 'Audit Description'
+            homepage 'https://brew.sh'
+            app 'Audit.app'
+          end
+        RUBY
+      end
+
+      it { is_expected.to pass }
+
+      it "receives a referer" do
+        expect(audit.cask.url.referer).to eq "https://example.com"
+      end
+
+      it "receives cookies" do
+        expect(audit.cask.url.cookies).to eq "foo" => "bar"
       end
     end
   end

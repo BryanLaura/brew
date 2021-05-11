@@ -3,11 +3,12 @@
 
 # typed: strong
 module ::StackProf; end
+module ::YARD::Docstring; end
+module ::YARD::DocstringParser; end
 module DependencyCollector::Compat; end
+module GitHubPackages::JSONSchemer; end
 module OS::Mac::Version::NULL; end
 module T::InterfaceWrapper::Helpers; end
 module T::Private::Abstract::Hooks; end
 module T::Private::Methods::MethodHooks; end
 module T::Private::Methods::SingletonMethodHooks; end
-module Test::Unit::AssertionFailedError; end
-module Test::Unit::Assertions; end
