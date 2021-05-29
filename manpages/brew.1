@@ -424,8 +424,16 @@ Disable/enable quarantining of downloads (default: enabled)\.
 \fB\-\-skip\-cask\-deps\fR
 Skip installing cask dependencies\.
 .
-.SS "\fBleaves\fR"
+.SS "\fBleaves\fR [\fI\-\-installed\-on\-request\fR] [\fI\-\-installed\-as\-dependency\fR]"
 List installed formulae that are not dependencies of another installed formula\.
+.
+.TP
+\fB\-r\fR, \fB\-\-installed\-on\-request\fR
+Only list leaves that were manually installed\.
+.
+.TP
+\fB\-p\fR, \fB\-\-installed\-as\-dependency\fR
+Only list leaves that were installed as dependencies\.
 .
 .SS "\fBlink\fR, \fBln\fR [\fIoptions\fR] \fIinstalled_formula\fR [\.\.\.]"
 Symlink all of \fIformula\fR\'s installed files into Homebrew\'s prefix\. This is done automatically when you install formulae but can be useful for DIY installations\.
@@ -441,6 +449,10 @@ List files which would be linked or deleted by \fBbrew link \-\-overwrite\fR wit
 .TP
 \fB\-f\fR, \fB\-\-force\fR
 Allow keg\-only formulae to be linked\.
+.
+.TP
+\fB\-\-HEAD\fR
+Link the HEAD version of the formula if it is installed\.
 .
 .SS "\fBlist\fR, \fBls\fR [\fIoptions\fR] [\fIinstalled_formula\fR|\fIinstalled_cask\fR \.\.\.]"
 List all installed formulae and casks\.
@@ -1449,7 +1461,7 @@ Dispatch specified workflow (default: \fBdispatch\-build\-bottle\.yml\fR)\.
 .
 .TP
 \fB\-\-upload\fR
-Upload built bottles to Bintray\.
+Upload built bottles\.
 .
 .TP
 \fB\-\-linux\fR
@@ -1597,6 +1609,10 @@ Publish bottles for a pull request with GitHub Actions\. Requires write access t
 If supported on the target tap, automatically reformat and reword commits in the pull request to our preferred format\.
 .
 .TP
+\fB\-\-branch\fR
+Branch to publish to (default: \fBmaster\fR)\.
+.
+.TP
 \fB\-\-message\fR
 Message to include when autosquashing revision bumps, deletions, and rebuilds\.
 .
@@ -1668,10 +1684,6 @@ Download artifacts with the specified name (default: \fBbottles\fR)\.
 Upload to the specified Internet Archive item (default: \fBhomebrew\fR)\.
 .
 .TP
-\fB\-\-bintray\-org\fR
-Upload to the specified Bintray organisation (default: \fBhomebrew\fR)\.
-.
-.TP
 \fB\-\-tap\fR
 Target tap repository (default: \fBhomebrew/core\fR)\.
 .
@@ -1682,10 +1694,6 @@ Use the specified \fIURL\fR as the root of the bottle\'s URL instead of Homebrew
 .TP
 \fB\-\-root\-url\-using\fR
 Use the specified download strategy class for downloading the bottle\'s URL instead of Homebrew\'s default\.
-.
-.TP
-\fB\-\-bintray\-mirror\fR
-Use the specified Bintray repository to automatically mirror stable URLs defined in the formulae (default: \fBmirror\fR)\.
 .
 .TP
 \fB\-\-workflows\fR
@@ -1725,10 +1733,6 @@ Specify a committer name and email in \fBgit\fR\'s standard author format\.
 .TP
 \fB\-\-archive\-item\fR
 Upload to the specified Internet Archive item (default: \fBhomebrew\fR)\.
-.
-.TP
-\fB\-\-bintray\-org\fR
-Upload to the specified Bintray organisation (default: \fBhomebrew\fR)\.
 .
 .TP
 \fB\-\-github\-org\fR
@@ -2519,18 +2523,6 @@ Use this as the \fBbat\fR configuration file\.
 \fIDefault:\fR \fB$HOME/\.bat/config\fR\.
 .
 .TP
-\fBHOMEBREW_BINTRAY_KEY\fR
-.
-.br
-Use this API key when accessing the Bintray API (where bottles are stored)\.
-.
-.TP
-\fBHOMEBREW_BINTRAY_USER\fR
-.
-.br
-Use this username when accessing the Bintray API (where bottles are stored)\.
-.
-.TP
 \fBHOMEBREW_BOOTSNAP\fR
 .
 .br
@@ -3018,7 +3010,7 @@ Homebrew\'s Technical Steering Committee is Bo Anderson, FX Coudert, Michka Popo
 Homebrew\'s Linux maintainers are Daniel Nachun, Dawid Dziurla, Issy Long, Jonathan Chang, Michka Popoff and Shaun Jackman\.
 .
 .P
-Homebrew\'s other current maintainers are Alexander Bayandin, Caleb Xu, Carlo Cabrera, Claudia Pellegrino, Dustin Rodrigues, Eric Knibbe, Maxim Belkin, Miccal Matthews, Nanda H Krishna, Randall, Sam Ford, Steve Peters, Thierry Moisan, Tom Schoonjans, Vitor Galvao and rui\.
+Homebrew\'s other current maintainers are Alexander Bayandin, Caleb Xu, Carlo Cabrera, Claudia Pellegrino, Dustin Rodrigues, Eric Knibbe, Maxim Belkin, Miccal Matthews, Michael Cho, Nanda H Krishna, Randall, Sam Ford, Steve Peters, Thierry Moisan, Tom Schoonjans, Vitor Galvao and rui\.
 .
 .P
 Former maintainers with significant contributions include Jan Viljanen, JCount, commitay, Dominyk Tiller, Tim Smith, Baptiste Fontaine, Xu Cheng, Martin Afanasjew, Brett Koonce, Charlie Sharpsteen, Jack Nagel, Adam Vandenberg, Andrew Janke, Alex Dunn, neutric, Tomasz Pajor, Uladzislau Shablinski, Alyssa Ross, ilovezfs, Chongyu Zhu and Homebrew\'s creator: Max Howell\.

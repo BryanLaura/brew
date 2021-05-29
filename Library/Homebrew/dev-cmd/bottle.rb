@@ -10,7 +10,7 @@ require "cli/parser"
 require "utils/inreplace"
 require "erb"
 require "archive"
-require "bintray"
+require "zlib"
 
 BOTTLE_ERB = <<-EOS
   bottle do
@@ -30,6 +30,11 @@ BOTTLE_ERB = <<-EOS
 EOS
 
 MAXIMUM_STRING_MATCHES = 100
+GZIP_BUFFER_SIZE = 64 * 1024
+
+ALLOWABLE_HOMEBREW_REPOSITORY_LINKS = [
+  %r{#{Regexp.escape(HOMEBREW_LIBRARY)}/Homebrew/os/(mac|linux)/pkgconfig},
+].freeze
 
 module Homebrew
   extend T::Sig
@@ -142,35 +147,8 @@ module Homebrew
         end
       end
 
-      text_matches = []
-
-      # Use strings to search through the file for each string
-      Utils.popen_read("strings", "-t", "x", "-", file.to_s) do |io|
-        until io.eof?
-          str = io.readline.chomp
-          next if ignores.any? { |i| i =~ str }
-          next unless str.include? string
-
-          offset, match = str.split(" ", 2)
-          next if linked_libraries.include? match # Don't bother reporting a string if it was found by otool
-
-          # Do not report matches to files that do not exist.
-          next unless File.exist? match
-
-          # Do not report matches to build dependencies.
-          if formula_and_runtime_deps_names.present?
-            begin
-              keg_name = Keg.for(Pathname.new(match)).name
-              next unless formula_and_runtime_deps_names.include? keg_name
-            rescue NotAKegError
-              nil
-            end
-          end
-
-          result = true
-          text_matches << [match, offset]
-        end
-      end
+      text_matches = Keg.text_matches_in_file(file, string, ignores, linked_libraries, formula_and_runtime_deps_names)
+      result = true if text_matches.any?
 
       next if !args.verbose? || text_matches.empty?
 
@@ -441,9 +419,14 @@ module Homebrew
           mv tar_path, relocatable_tar_path
           # Use gzip, faster to compress than bzip2, faster to uncompress than bzip2
           # or an uncompressed tarball (and more bandwidth friendly).
-          safe_system "gzip", "-f", relocatable_tar_path
+          gz = Zlib::GzipWriter.open(bottle_path)
+          gz.mtime = tab.source_modified_time
+          gz.orig_name = relocatable_tar_path
+          File.open(relocatable_tar_path, "rb") do |tarfile|
+            gz.write(tarfile.read(GZIP_BUFFER_SIZE)) until tarfile.eof?
+          end
+          gz.close
           sudo_purge
-          mv "#{relocatable_tar_path}.gz", bottle_path
         end
 
         ohai "Detecting if #{local_filename} is relocatable..." if bottle_path.size > 1 * 1024 * 1024
@@ -471,7 +454,7 @@ module Homebrew
         else
           HOMEBREW_REPOSITORY
         end.to_s
-        if keg_contain?(repository_reference, keg, ignores, args: args)
+        if keg_contain?(repository_reference, keg, ignores + ALLOWABLE_HOMEBREW_REPOSITORY_LINKS, args: args)
           odie "Bottle contains non-relocatable reference to #{repository_reference}!"
         end
 
@@ -583,15 +566,6 @@ module Homebrew
         },
       },
     }
-
-    if bottle.root_url.match?(::Bintray::URL_REGEX) ||
-       # TODO: given the naming: ideally the Internet Archive uploader wouldn't use this.
-       bottle.root_url.start_with?("#{::Archive::URL_PREFIX}/")
-      json[f.full_name]["bintray"] = {
-        "package"    => Utils::Bottles::Bintray.package(f.name),
-        "repository" => Utils::Bottles::Bintray.repository(tap),
-      }
-    end
 
     puts "Writing #{filename.json}" if args.verbose?
     json_path = Pathname(filename.json)

@@ -48,6 +48,30 @@ module Homebrew
     end
 
     sig { params(path: T.nilable(T.any(String, Pathname))).returns(T.nilable(String)) }
+    def root_dir(path = nil)
+      case T.unsafe(path)
+      when nil
+        @root_dir
+      when String, Pathname
+        @root_dir = path.to_s
+      else
+        raise TypeError, "Service#root_dir expects a String or Pathname"
+      end
+    end
+
+    sig { params(path: T.nilable(T.any(String, Pathname))).returns(T.nilable(String)) }
+    def input_path(path = nil)
+      case T.unsafe(path)
+      when nil
+        @input_path
+      when String, Pathname
+        @input_path = path.to_s
+      else
+        raise TypeError, "Service#input_path expects a String or Pathname"
+      end
+    end
+
+    sig { params(path: T.nilable(T.any(String, Pathname))).returns(T.nilable(String)) }
     def log_path(path = nil)
       case T.unsafe(path)
       when nil
@@ -83,6 +107,18 @@ module Homebrew
       end
     end
 
+    sig { params(value: T.nilable(Integer)).returns(T.nilable(Integer)) }
+    def restart_delay(value = nil)
+      case T.unsafe(value)
+      when nil
+        @restart_delay
+      when Integer
+        @restart_delay = value
+      else
+        raise TypeError, "Service#restart_delay expects an Integer"
+      end
+    end
+
     sig { params(type: T.nilable(T.any(String, Symbol))).returns(T.nilable(String)) }
     def run_type(type = nil)
       case T.unsafe(type)
@@ -99,15 +135,25 @@ module Homebrew
       end
     end
 
-    sig { params(variables: T.nilable(T::Hash[String, String])).returns(T.nilable(T::Hash[String, String])) }
+    sig { params(variables: T::Hash[String, String]).returns(T.nilable(T::Hash[String, String])) }
     def environment_variables(variables = {})
       case T.unsafe(variables)
-      when nil
-        @environment_variables
       when Hash
-        @environment_variables = variables
+        @environment_variables = variables.transform_values(&:to_s)
       else
         raise TypeError, "Service#environment_variables expects a hash"
+      end
+    end
+
+    sig { params(value: T.nilable(T::Boolean)).returns(T.nilable(T::Boolean)) }
+    def macos_legacy_timers(value = nil)
+      case T.unsafe(value)
+      when nil
+        @macos_legacy_timers
+      when true, false
+        @macos_legacy_timers = value
+      else
+        raise TypeError, "Service#macos_legacy_timers expects a Boolean"
       end
     end
 
@@ -124,6 +170,16 @@ module Homebrew
       @run.map(&:to_s)
     end
 
+    sig { returns(String) }
+    def manual_command
+      instance_eval(&@service_block)
+      vars = @environment_variables.except(:PATH)
+                                   .map { |k, v| "#{k}=\"#{v}\"" }
+
+      out = vars + command
+      out.join(" ")
+    end
+
     # Returns a `String` plist.
     # @return [String]
     sig { returns(String) }
@@ -135,7 +191,11 @@ module Homebrew
       }
 
       base[:KeepAlive] = @keep_alive if @keep_alive == true
+      base[:LegacyTimers] = @macos_legacy_timers if @macos_legacy_timers == true
+      base[:TimeOut] = @restart_delay if @restart_delay.present?
       base[:WorkingDirectory] = @working_dir if @working_dir.present?
+      base[:RootDirectory] = @root_dir if @root_dir.present?
+      base[:StandardInPath] = @input_path if @input_path.present?
       base[:StandardOutPath] = @log_path if @log_path.present?
       base[:StandardErrorPath] = @error_log_path if @error_log_path.present?
       base[:EnvironmentVariables] = @environment_variables unless @environment_variables.empty?
@@ -158,13 +218,13 @@ module Homebrew
 
       options = []
       options << "Restart=always" if @keep_alive == true
+      options << "RestartSec=#{restart_delay}" if @restart_delay.present?
       options << "WorkingDirectory=#{@working_dir}" if @working_dir.present?
+      options << "RootDirectory=#{@root_dir}" if @root_dir.present?
+      options << "StandardInput=file:#{@input_path}" if @input_path.present?
       options << "StandardOutput=append:#{@log_path}" if @log_path.present?
       options << "StandardError=append:#{@error_log_path}" if @error_log_path.present?
-      if @environment_variables.present?
-        list = @environment_variables.map { |k, v| "#{k}=#{v}" }.join("&")
-        options << "Environment=\"#{list}\""
-      end
+      options += @environment_variables.map { |k, v| "Environment=\"#{k}=#{v}\"" } if @environment_variables.present?
 
       unit + options.join("\n")
     end

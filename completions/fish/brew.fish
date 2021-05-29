@@ -585,7 +585,7 @@ __fish_brew_complete_arg 'dispatch-build-bottle' -l linux -d 'Dispatch bottle fo
 __fish_brew_complete_arg 'dispatch-build-bottle' -l macos -d 'Version of macOS the bottle should be built for'
 __fish_brew_complete_arg 'dispatch-build-bottle' -l quiet -d 'Make some output more quiet'
 __fish_brew_complete_arg 'dispatch-build-bottle' -l tap -d 'Target tap repository (default: `homebrew/core`)'
-__fish_brew_complete_arg 'dispatch-build-bottle' -l upload -d 'Upload built bottles to Bintray'
+__fish_brew_complete_arg 'dispatch-build-bottle' -l upload -d 'Upload built bottles'
 __fish_brew_complete_arg 'dispatch-build-bottle' -l verbose -d 'Make some output more verbose'
 __fish_brew_complete_arg 'dispatch-build-bottle' -l workflow -d 'Dispatch specified workflow (default: `dispatch-build-bottle.yml`)'
 __fish_brew_complete_arg 'dispatch-build-bottle' -a '(__fish_brew_suggest_formulae_all)'
@@ -845,11 +845,14 @@ __fish_brew_complete_arg 'irb' -l verbose -d 'Make some output more verbose'
 __fish_brew_complete_cmd 'leaves' 'List installed formulae that are not dependencies of another installed formula'
 __fish_brew_complete_arg 'leaves' -l debug -d 'Display any debugging information'
 __fish_brew_complete_arg 'leaves' -l help -d 'Show this message'
+__fish_brew_complete_arg 'leaves' -l installed-as-dependency -d 'Only list leaves that were installed as dependencies'
+__fish_brew_complete_arg 'leaves' -l installed-on-request -d 'Only list leaves that were manually installed'
 __fish_brew_complete_arg 'leaves' -l quiet -d 'Make some output more quiet'
 __fish_brew_complete_arg 'leaves' -l verbose -d 'Make some output more verbose'
 
 
 __fish_brew_complete_cmd 'link' 'Symlink all of formula\'s installed files into Homebrew\'s prefix'
+__fish_brew_complete_arg 'link' -l HEAD -d 'Link the HEAD version of the formula if it is installed'
 __fish_brew_complete_arg 'link' -l debug -d 'Display any debugging information'
 __fish_brew_complete_arg 'link' -l dry-run -d 'List files which would be linked or deleted by `brew link --overwrite` without actually linking or deleting any files'
 __fish_brew_complete_arg 'link' -l force -d 'Allow keg-only formulae to be linked'
@@ -908,6 +911,7 @@ __fish_brew_complete_arg 'livecheck; and not __fish_seen_argument -l formula -l 
 
 
 __fish_brew_complete_cmd 'ln' 'Symlink all of formula\'s installed files into Homebrew\'s prefix'
+__fish_brew_complete_arg 'ln' -l HEAD -d 'Link the HEAD version of the formula if it is installed'
 __fish_brew_complete_arg 'ln' -l debug -d 'Display any debugging information'
 __fish_brew_complete_arg 'ln' -l dry-run -d 'List files which would be linked or deleted by `brew link --overwrite` without actually linking or deleting any files'
 __fish_brew_complete_arg 'ln' -l force -d 'Allow keg-only formulae to be linked'
@@ -967,15 +971,11 @@ __fish_brew_complete_arg 'migrate' -l verbose -d 'Make some output more verbose'
 __fish_brew_complete_arg 'migrate' -a '(__fish_brew_suggest_formulae_installed)'
 
 
-__fish_brew_complete_cmd 'mirror' 'Reupload the stable URL of a formula to Bintray for use as a mirror'
-__fish_brew_complete_arg 'mirror' -l bintray-org -d 'Upload to the specified Bintray organisation (default: `homebrew`)'
-__fish_brew_complete_arg 'mirror' -l bintray-repo -d 'Upload to the specified Bintray repository (default: `mirror`)'
+__fish_brew_complete_cmd 'mirror' 'Reupload the stable URL of a formula for use as a mirror'
 __fish_brew_complete_arg 'mirror' -l debug -d 'Display any debugging information'
 __fish_brew_complete_arg 'mirror' -l help -d 'Show this message'
-__fish_brew_complete_arg 'mirror' -l no-publish -d 'Upload to Bintray, but don\'t publish'
 __fish_brew_complete_arg 'mirror' -l quiet -d 'Make some output more quiet'
 __fish_brew_complete_arg 'mirror' -l verbose -d 'Make some output more verbose'
-__fish_brew_complete_arg 'mirror' -a '(__fish_brew_suggest_formulae_all)'
 
 
 __fish_brew_complete_cmd 'missing' 'Check the given formula kegs for missing dependencies'
@@ -1045,6 +1045,7 @@ __fish_brew_complete_arg 'pr-automerge' -l without-labels -d 'Pull requests must
 
 __fish_brew_complete_cmd 'pr-publish' 'Publish bottles for a pull request with GitHub Actions'
 __fish_brew_complete_arg 'pr-publish' -l autosquash -d 'If supported on the target tap, automatically reformat and reword commits in the pull request to our preferred format'
+__fish_brew_complete_arg 'pr-publish' -l branch -d 'Branch to publish to (default: `master`)'
 __fish_brew_complete_arg 'pr-publish' -l debug -d 'Display any debugging information'
 __fish_brew_complete_arg 'pr-publish' -l help -d 'Show this message'
 __fish_brew_complete_arg 'pr-publish' -l message -d 'Message to include when autosquashing revision bumps, deletions, and rebuilds'
@@ -1058,8 +1059,6 @@ __fish_brew_complete_cmd 'pr-pull' 'Download and publish bottles, and apply the 
 __fish_brew_complete_arg 'pr-pull' -l archive-item -d 'Upload to the specified Internet Archive item (default: `homebrew`)'
 __fish_brew_complete_arg 'pr-pull' -l artifact -d 'Download artifacts with the specified name (default: `bottles`)'
 __fish_brew_complete_arg 'pr-pull' -l autosquash -d 'Automatically reformat and reword commits in the pull request to our preferred format'
-__fish_brew_complete_arg 'pr-pull' -l bintray-mirror -d 'Use the specified Bintray repository to automatically mirror stable URLs defined in the formulae (default: `mirror`)'
-__fish_brew_complete_arg 'pr-pull' -l bintray-org -d 'Upload to the specified Bintray organisation (default: `homebrew`)'
 __fish_brew_complete_arg 'pr-pull' -l branch-okay -d 'Do not warn if pulling to a branch besides the repository default (useful for testing)'
 __fish_brew_complete_arg 'pr-pull' -l clean -d 'Do not amend the commits from pull requests'
 __fish_brew_complete_arg 'pr-pull' -l committer -d 'Specify a committer name and email in `git`\'s standard author format'
@@ -1084,7 +1083,6 @@ __fish_brew_complete_arg 'pr-pull' -l workflows -d 'Retrieve artifacts from the 
 
 __fish_brew_complete_cmd 'pr-upload' 'Apply the bottle commit and publish bottles to a host'
 __fish_brew_complete_arg 'pr-upload' -l archive-item -d 'Upload to the specified Internet Archive item (default: `homebrew`)'
-__fish_brew_complete_arg 'pr-upload' -l bintray-org -d 'Upload to the specified Bintray organisation (default: `homebrew`)'
 __fish_brew_complete_arg 'pr-upload' -l committer -d 'Specify a committer name and email in `git`\'s standard author format'
 __fish_brew_complete_arg 'pr-upload' -l debug -d 'Display any debugging information'
 __fish_brew_complete_arg 'pr-upload' -l dry-run -d 'Print what would be done rather than doing it'

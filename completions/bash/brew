@@ -1170,6 +1170,8 @@ _brew_leaves() {
       __brewcomp "
       --debug
       --help
+      --installed-as-dependency
+      --installed-on-request
       --quiet
       --verbose
       "
@@ -1184,6 +1186,7 @@ _brew_link() {
   case "${cur}" in
     -*)
       __brewcomp "
+      --HEAD
       --debug
       --dry-run
       --force
@@ -1278,6 +1281,7 @@ _brew_ln() {
   case "${cur}" in
     -*)
       __brewcomp "
+      --HEAD
       --debug
       --dry-run
       --force
@@ -1383,11 +1387,8 @@ _brew_mirror() {
   case "${cur}" in
     -*)
       __brewcomp "
-      --bintray-org
-      --bintray-repo
       --debug
       --help
-      --no-publish
       --quiet
       --verbose
       "
@@ -1395,7 +1396,6 @@ _brew_mirror() {
       ;;
     *)
   esac
-  __brew_complete_formulae
 }
 
 _brew_missing() {
@@ -1523,6 +1523,7 @@ _brew_pr_publish() {
     -*)
       __brewcomp "
       --autosquash
+      --branch
       --debug
       --help
       --message
@@ -1545,8 +1546,6 @@ _brew_pr_pull() {
       --archive-item
       --artifact
       --autosquash
-      --bintray-mirror
-      --bintray-org
       --branch-okay
       --clean
       --committer
@@ -1580,7 +1579,6 @@ _brew_pr_upload() {
     -*)
       __brewcomp "
       --archive-item
-      --bintray-org
       --committer
       --debug
       --dry-run
@@ -2394,32 +2392,32 @@ _brew() {
   local i=1 cmd
 
   # find the subcommand
-  while [[ "$i" -lt "$COMP_CWORD" ]]
+  while [[ "${i}" -lt "${COMP_CWORD}" ]]
   do
     local s="${COMP_WORDS[i]}"
-    case "$s" in
+    case "${s}" in
       --*)
-        cmd="$s"
+        cmd="${s}"
         break
         ;;
       -*)
         ;;
       *)
-        cmd="$s"
+        cmd="${s}"
         break
         ;;
     esac
     (( i++ ))
   done
 
-  if [[ "$i" -eq "$COMP_CWORD" ]]
+  if [[ "${i}" -eq "${COMP_CWORD}" ]]
   then
     __brew_complete_commands
     return
   fi
 
   # subcommands have their own completion functions
-  case "$cmd" in
+  case "${cmd}" in
     --cache) _brew___cache ;;
     --caskroom) _brew___caskroom ;;
     --cellar) _brew___cellar ;;

@@ -13,7 +13,6 @@ require "patch"
 require "compilers"
 require "os/mac/version"
 require "extend/on_os"
-require "bintray"
 
 class SoftwareSpec
   extend T::Sig
@@ -348,8 +347,20 @@ class Bottle
   end
 
   def fetch_tab
+    return if github_packages_manifest_resource.blank?
+
     # a checksum is used later identifying the correct tab but we do not have the checksum for the manifest/tab
-    github_packages_manifest_resource&.fetch(verify_download_integrity: false)
+    github_packages_manifest_resource.fetch(verify_download_integrity: false)
+
+    begin
+      JSON.parse(github_packages_manifest_resource.cached_download.read)
+    rescue JSON::ParserError
+      raise DownloadError.new(
+        github_packages_manifest_resource,
+        RuntimeError.new("The downloaded GitHub Packages manifest was corrupted or modified (it is not valid JSON):"\
+                         "\n#{github_packages_manifest_resource.cached_download}"),
+      )
+    end
   rescue DownloadError
     raise unless fallback_on_error
 
@@ -364,7 +375,8 @@ class Bottle
     json = begin
       JSON.parse(manifest_json)
     rescue JSON::ParserError
-      raise ArgumentError, "Couldn't parse manifest JSON."
+      raise "The downloaded GitHub Packages manifest was corrupted or modified (it is not valid JSON): "\
+            "\n#{github_packages_manifest_resource.cached_download}"
     end
 
     manifests = json["manifests"]
@@ -461,8 +473,6 @@ class BottleSpecification
     if var.nil?
       @root_url ||= if (github_packages_url = GitHubPackages.root_url_if_match(Homebrew::EnvConfig.bottle_domain))
         github_packages_url
-      elsif Homebrew::EnvConfig.bottle_domain.match?(::Bintray::URL_REGEX)
-        "#{Homebrew::EnvConfig.bottle_domain}/#{Utils::Bottles::Bintray.repository(tap)}"
       else
         Homebrew::EnvConfig.bottle_domain
       end

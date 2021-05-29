@@ -92,6 +92,23 @@ module Utils
         end
       end
 
+      def load_tab(formula)
+        keg = Keg.new(formula.prefix)
+        tabfile = keg/Tab::FILENAME
+        bottle_json_path = formula.local_bottle_path&.sub(/\.tar\.gz$/, ".json")
+
+        if (tab_attributes = formula.bottle_tab_attributes.presence)
+          Tab.from_file_content(tab_attributes.to_json, tabfile)
+        elsif !tabfile.exist? && bottle_json_path&.exist?
+          _, tag, = Utils::Bottles.extname_tag_rebuild(formula.local_bottle_path)
+          bottle_hash = JSON.parse(File.read(bottle_json_path))
+          tab_json = bottle_hash[formula.full_name]["bottle"]["tags"][tag]["tab"].to_json
+          Tab.from_file_content(tab_json, tabfile)
+        else
+          Tab.for_keg(keg)
+        end
+      end
+
       private
 
       def bottle_file_list(bottle_file)
@@ -194,24 +211,6 @@ module Utils
           Homebrew::DEFAULT_MACOS_ARM_CELLAR
         else
           Homebrew::DEFAULT_MACOS_CELLAR
-        end
-      end
-    end
-
-    # Helper functions for bottles hosted on Bintray.
-    module Bintray
-      def self.package(formula_name)
-        package_name = formula_name.to_s.dup
-        package_name.tr!("+", "x")
-        package_name.sub!(/(.)@(\d)/, "\\1:\\2") # Handle foo@1.2 style formulae.
-        package_name
-      end
-
-      def self.repository(tap = nil)
-        if tap.nil? || tap.core_tap?
-          "bottles"
-        else
-          "bottles-#{tap.repo}"
         end
       end
     end
