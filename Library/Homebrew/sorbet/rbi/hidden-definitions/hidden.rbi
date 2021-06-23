@@ -6213,14 +6213,6 @@ class CompilerSelector
   extend ::T::Private::Methods::SingletonMethodHooks
 end
 
-class Concurrent::Promises::AbstractEventFuture
-  include ::Concurrent::Promises::InternalStates
-end
-
-module Concurrent::Promises::Resolvable
-  include ::Concurrent::Promises::InternalStates
-end
-
 class Concurrent::RubyThreadPoolExecutor
   DEFAULT_SYNCHRONOUS = ::T.let(nil, ::T.untyped)
 end
@@ -6240,10 +6232,6 @@ end
 module CopHelper
   extend ::RSpec::Core::SharedContext
   extend ::RSpec::Its
-end
-
-class CurlDownloadStrategy
-  include ::AbstractDownloadStrategy::Compat_Fetch
 end
 
 class CxxStdlib
@@ -6997,11 +6985,6 @@ class Enumerator::Generator
   def each(*_, &blk); end
 
   def initialize(*_); end
-end
-
-module EnvVar
-  extend ::T::Private::Methods::MethodHooks
-  extend ::T::Private::Methods::SingletonMethodHooks
 end
 
 class Errno::EAUTH
@@ -8246,6 +8229,8 @@ module Homebrew::EnvConfig
 
   def self.no_install_cleanup?(); end
 
+  def self.no_install_upgrade?(); end
+
   def self.no_installed_dependents_check?(); end
 
   def self.no_proxy(); end
@@ -8396,11 +8381,6 @@ module Homebrew::Livecheck::Strategy
 end
 
 class Homebrew::Service
-  extend ::T::Private::Methods::MethodHooks
-  extend ::T::Private::Methods::SingletonMethodHooks
-end
-
-module Homebrew::Settings
   extend ::T::Private::Methods::MethodHooks
   extend ::T::Private::Methods::SingletonMethodHooks
 end
@@ -12644,8 +12624,8 @@ end
 class Object
   include ::Minitest::Expectations
   include ::ActiveSupport::Tryable
-  include ::SystemCommand::Mixin
   include ::Utils::Curl
+  include ::SystemCommand::Mixin
   include ::ActiveSupport::Dependencies::Loadable
   include ::ActiveSupport::ForkTracker::CoreExtPrivate
   include ::ActiveSupport::ForkTracker::CoreExt
@@ -12670,6 +12650,7 @@ class Object
   DEPRECATED_OFFICIAL_TAPS = ::T.let(nil, ::T.untyped)
   ENV = ::T.let(nil, ::T.untyped)
   FORMULA_COMPONENT_PRECEDENCE_LIST = ::T.let(nil, ::T.untyped)
+  HIDDEN_DESC_PLACEHOLDER = ::T.let(nil, ::T.untyped)
   HOMEBREW_BOTTLES_EXTNAME_REGEX = ::T.let(nil, ::T.untyped)
   HOMEBREW_BOTTLE_DEFAULT_DOMAIN = ::T.let(nil, ::T.untyped)
   HOMEBREW_BREW_DEFAULT_GIT_REMOTE = ::T.let(nil, ::T.untyped)
@@ -12816,6 +12797,31 @@ module OpenSSL::SSL
   TLS1_2_VERSION = ::T.let(nil, ::T.untyped)
   TLS1_3_VERSION = ::T.let(nil, ::T.untyped)
   TLS1_VERSION = ::T.let(nil, ::T.untyped)
+end
+
+class OpenSSL::SSL::SSLContext
+  def add_certificate(*_); end
+
+  def alpn_protocols(); end
+
+  def alpn_protocols=(alpn_protocols); end
+
+  def alpn_select_cb(); end
+
+  def alpn_select_cb=(alpn_select_cb); end
+
+  def enable_fallback_scsv(); end
+
+  def max_version=(version); end
+
+  def min_version=(version); end
+  DEFAULT_TMP_DH_CALLBACK = ::T.let(nil, ::T.untyped)
+end
+
+class OpenSSL::SSL::SSLSocket
+  def alpn_protocol(); end
+
+  def tmp_key(); end
 end
 
 module OpenSSL::X509
@@ -26783,8 +26789,11 @@ class RuboCop::AST::NodePattern::Parser
 end
 
 module RuboCop::AST::NodePattern::Sets
+  SET_BEGINNING_OF_DAY_BEGINNING_OF_WEEK_BEGINNING_OF_MONTH_ETC = ::T.let(nil, ::T.untyped)
   SET_BUILD_RECOMMENDED_TEST_OPTIONAL = ::T.let(nil, ::T.untyped)
   SET_DEPENDS_ON_USES_FROM_MACOS = ::T.let(nil, ::T.untyped)
+  SET_END_OF_DAY_END_OF_WEEK_END_OF_MONTH_ETC = ::T.let(nil, ::T.untyped)
+  SET_EQL_EQ_BE = ::T.let(nil, ::T.untyped)
   SET_INCLUDE_WITH_WITHOUT = ::T.let(nil, ::T.untyped)
   SET_SYSTEM_SHELL_OUTPUT_PIPE_OUTPUT = ::T.let(nil, ::T.untyped)
   SET_WITH_WITHOUT = ::T.let(nil, ::T.untyped)

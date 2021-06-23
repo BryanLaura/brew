@@ -142,8 +142,8 @@ class Requirement
 
   def infer_name
     klass = self.class.name || self.class.to_s
-    klass.sub!(/(Dependency|Requirement)$/, "")
-    klass.sub!(/^(\w+::)*/, "")
+    klass = klass.sub(/(Dependency|Requirement)$/, "")
+                 .sub(/^(\w+::)*/, "")
     return klass.downcase if klass.present?
 
     return @cask if @cask.present?
@@ -223,7 +223,7 @@ class Requirement
     def expand(dependent, cache_key: nil, &block)
       if cache_key.present?
         cache[cache_key] ||= {}
-        return cache[cache_key][dependent.full_name].dup if cache[cache_key][dependent.full_name]
+        return cache[cache_key][cache_id dependent].dup if cache[cache_key][cache_id dependent]
       end
 
       reqs = Requirements.new
@@ -239,7 +239,7 @@ class Requirement
         end
       end
 
-      cache[cache_key][dependent.full_name] = reqs.dup if cache_key.present?
+      cache[cache_key][cache_id dependent] = reqs.dup if cache_key.present?
       reqs
     end
 
@@ -257,6 +257,12 @@ class Requirement
     sig { void }
     def prune
       throw(:prune, true)
+    end
+
+    private
+
+    def cache_id(dependent)
+      "#{dependent.full_name}_#{dependent.class}"
     end
   end
 end

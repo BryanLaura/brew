@@ -127,6 +127,7 @@ class Tap
     @style_exceptions = nil
     @pypi_formula_mappings = nil
     @config = nil
+    @spell_checker = nil
     remove_instance_variable(:@private) if instance_variable_defined?(:@private)
   end
 
@@ -734,6 +735,7 @@ class CoreTap < Tap
 
   def self.ensure_installed!
     return if instance.installed?
+    return if ENV["HOMEBREW_JSON_CORE"].present?
 
     safe_system HOMEBREW_BREW_FILE, "tap", instance.name
   end
@@ -748,9 +750,11 @@ class CoreTap < Tap
   end
 
   # @private
-  sig { void }
-  def uninstall
-    raise "Tap#uninstall is not available for CoreTap"
+  sig { params(manual: T::Boolean).void }
+  def uninstall(manual: false)
+    raise "Tap#uninstall is not available for CoreTap" if ENV["HOMEBREW_JSON_CORE"].blank?
+
+    super
   end
 
   # @private

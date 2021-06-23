@@ -177,7 +177,6 @@ __brew_internal_commands() {
     'log:Show the `git log` for formula, or show the log for the Homebrew repository if no formula is provided'
     'man:Generate Homebrew'\''s manpages'
     'migrate:Migrate renamed packages to new names, where formula are old names of packages'
-    'mirror:Reupload the stable URL of a formula for use as a mirror'
     'missing:Check the given formula kegs for missing dependencies'
     'options:Show install options specific to formula'
     'outdated:List installed casks and formulae that have an updated version available'
@@ -191,7 +190,6 @@ __brew_internal_commands() {
     'readall:Import all items from the specified tap, or from all installed taps if none is provided'
     'reinstall:Uninstall and then reinstall a formula or cask using the same options it was originally installed with, plus any appended options specific to a formula'
     'release:Create a new draft Homebrew/brew release with the appropriate version number and release notes'
-    'release-notes:Print the merged pull requests on Homebrew/brew between two Git refs'
     'rubocop:Installs, configures and runs Homebrew'\''s `rubocop`'
     'ruby:Run a Ruby instance with Homebrew'\''s libraries loaded'
     'search:Perform a substring search of cask tokens and formula names for text'
@@ -371,11 +369,11 @@ _brew__s() {
 _brew_abv() {
   _arguments \
     '(--installed)--all[Print JSON of all available formulae]' \
-    '--analytics[List global Homebrew analytics data or, if specified, installation and build error data for formula (provided neither `HOMEBREW_NO_ANALYTICS` nor `HOMEBREW_NO_GITHUB_API` are set)]' \
+    '(--bottle)--analytics[List global Homebrew analytics data or, if specified, installation and build error data for formula (provided neither `HOMEBREW_NO_ANALYTICS` nor `HOMEBREW_NO_GITHUB_API` are set)]' \
     '--category[Which type of analytics data to retrieve. The value for category must be `install`, `install-on-request` or `build-error`; `cask-install` or `os-version` may be specified if formula is not. The default is `install`]' \
     '--days[How many days of analytics data to retrieve. The value for days must be `30`, `90` or `365`. The default is `30`]' \
     '--debug[Display any debugging information]' \
-    '--github[Open the GitHub source page for formula in a browser. To view formula history locally: `brew log -p` formula]' \
+    '(--bottle)--github[Open the GitHub source page for formula in a browser. To view formula history locally: `brew log -p` formula]' \
     '--help[Show this message]' \
     '(--all)--installed[Print JSON of formulae that are currently installed]' \
     '--json[Print a JSON representation. Currently the default value for version is `v1` for formula. For formula and cask use `v2`. See the docs for examples of using the JSON output: https://docs.brew.sh/Querying-Brew]' \
@@ -385,7 +383,7 @@ _brew_abv() {
     '(--cask)--formula[Treat all named arguments as formulae]' \
     '*::formula:__brew_formulae' \
     - cask \
-    '(--formula)--cask[Treat all named arguments as casks]' \
+    '(--formula --bottle)--cask[Treat all named arguments as casks]' \
     '*::cask:__brew_casks'
 }
 
@@ -890,11 +888,11 @@ _brew_homepage() {
 _brew_info() {
   _arguments \
     '(--installed)--all[Print JSON of all available formulae]' \
-    '--analytics[List global Homebrew analytics data or, if specified, installation and build error data for formula (provided neither `HOMEBREW_NO_ANALYTICS` nor `HOMEBREW_NO_GITHUB_API` are set)]' \
+    '(--bottle)--analytics[List global Homebrew analytics data or, if specified, installation and build error data for formula (provided neither `HOMEBREW_NO_ANALYTICS` nor `HOMEBREW_NO_GITHUB_API` are set)]' \
     '--category[Which type of analytics data to retrieve. The value for category must be `install`, `install-on-request` or `build-error`; `cask-install` or `os-version` may be specified if formula is not. The default is `install`]' \
     '--days[How many days of analytics data to retrieve. The value for days must be `30`, `90` or `365`. The default is `30`]' \
     '--debug[Display any debugging information]' \
-    '--github[Open the GitHub source page for formula in a browser. To view formula history locally: `brew log -p` formula]' \
+    '(--bottle)--github[Open the GitHub source page for formula in a browser. To view formula history locally: `brew log -p` formula]' \
     '--help[Show this message]' \
     '(--all)--installed[Print JSON of formulae that are currently installed]' \
     '--json[Print a JSON representation. Currently the default value for version is `v1` for formula. For formula and cask use `v2`. See the docs for examples of using the JSON output: https://docs.brew.sh/Querying-Brew]' \
@@ -904,7 +902,7 @@ _brew_info() {
     '(--cask)--formula[Treat all named arguments as formulae]' \
     '*::formula:__brew_formulae' \
     - cask \
-    '(--formula)--cask[Treat all named arguments as casks]' \
+    '(--formula --bottle)--cask[Treat all named arguments as casks]' \
     '*::cask:__brew_casks'
 }
 
@@ -1016,6 +1014,7 @@ _brew_install() {
 _brew_install_bundler_gems() {
   _arguments \
     '--debug[Display any debugging information]' \
+    '--groups[Installs the specified comma-separated list of gem groups (default: last used)]' \
     '--help[Show this message]' \
     '--quiet[Make some output more quiet]' \
     '--verbose[Make some output more verbose]'
@@ -1192,15 +1191,6 @@ _brew_migrate() {
     '*::installed_formula:__brew_installed_formulae'
 }
 
-# brew mirror
-_brew_mirror() {
-  _arguments \
-    '--debug[Display any debugging information]' \
-    '--help[Show this message]' \
-    '--quiet[Make some output more quiet]' \
-    '--verbose[Make some output more verbose]'
-}
-
 # brew missing
 _brew_missing() {
   _arguments \
@@ -1314,8 +1304,7 @@ _brew_pr_pull() {
     '--keep-old[If the formula specifies a rebuild version, attempt to preserve its value in the generated DSL]' \
     '--message[Message to include when autosquashing revision bumps, deletions, and rebuilds]' \
     '--no-commit[Do not generate a new commit before uploading]' \
-    '--no-publish[Download the bottles, apply the bottle commit and upload the bottles, but don'\''t publish them]' \
-    '--no-upload[Download the bottles and apply the bottle commit, but don'\''t upload]' \
+    '--no-upload[Download the bottles but don'\''t upload them]' \
     '--quiet[Make some output more quiet]' \
     '--resolve[When a patch fails to apply, leave in progress and allow user to resolve, instead of aborting]' \
     '--root-url[Use the specified URL as the root of the bottle'\''s URL instead of Homebrew'\''s default]' \
@@ -1337,7 +1326,6 @@ _brew_pr_upload() {
     '--help[Show this message]' \
     '--keep-old[If the formula specifies a rebuild version, attempt to preserve its value in the generated DSL]' \
     '--no-commit[Do not generate a new commit before uploading]' \
-    '--no-publish[Apply the bottle commit and upload the bottles, but don'\''t publish them]' \
     '--quiet[Make some output more quiet]' \
     '--root-url[Use the specified URL as the root of the bottle'\''s URL instead of Homebrew'\''s default]' \
     '--root-url-using[Use the specified download strategy class for downloading the bottle'\''s URL instead of Homebrew'\''s default]' \
@@ -1419,16 +1407,6 @@ _brew_release() {
     '--help[Show this message]' \
     '(--minor)--major[Create a major release]' \
     '(--major)--minor[Create a minor release]' \
-    '--quiet[Make some output more quiet]' \
-    '--verbose[Make some output more verbose]'
-}
-
-# brew release-notes
-_brew_release_notes() {
-  _arguments \
-    '--debug[Display any debugging information]' \
-    '--help[Show this message]' \
-    '--markdown[Print as a Markdown list]' \
     '--quiet[Make some output more quiet]' \
     '--verbose[Make some output more verbose]'
 }

@@ -871,6 +871,25 @@ describe Formula do
     expect(h["versions"]["bottle"]).to be_truthy
   end
 
+  specify "#to_recursive_bottle_hash" do
+    f1 = formula "foo" do
+      url "foo-1.0"
+
+      bottle do
+        sha256 cellar: :any, Utils::Bottles.tag.to_sym => TEST_SHA256
+        sha256 cellar: :any, foo:                         TEST_SHA256
+      end
+    end
+
+    h = f1.to_recursive_bottle_hash
+
+    expect(h).to be_a(Hash)
+    expect(h["name"]).to eq "foo"
+    expect(h["bottles"].keys).to eq [Utils::Bottles.tag.to_s, "x86_64_foo"]
+    expect(h["bottles"][Utils::Bottles.tag.to_s].keys).to eq ["url"]
+    expect(h["dependencies"]).to eq []
+  end
+
   describe "#eligible_kegs_for_cleanup" do
     it "returns Kegs eligible for cleanup" do
       f1 = Class.new(Testball) do
@@ -928,20 +947,17 @@ describe Formula do
         head("foo")
       end
 
-      stable_prefix = f.latest_installed_prefix
-      stable_prefix.mkpath
-
-      [["000000_1", 1], ["111111", 2], ["111111_1", 2]].each do |pkg_version_suffix, stamp|
-        prefix = f.prefix("HEAD-#{pkg_version_suffix}")
+      ["0.0.1", "0.0.2", "0.1", "HEAD-000000", "HEAD-111111", "HEAD-111111_1"].each do |version|
+        prefix = f.prefix(version)
         prefix.mkpath
         tab = Tab.empty
         tab.tabfile = prefix/Tab::FILENAME
-        tab.source_modified_time = stamp
+        tab.source_modified_time = 1
         tab.write
       end
 
-      eligible_kegs = f.installed_kegs - [Keg.new(f.prefix("HEAD-111111_1"))]
-      expect(f.eligible_kegs_for_cleanup).to eq(eligible_kegs)
+      eligible_kegs = f.installed_kegs - [Keg.new(f.prefix("HEAD-111111_1")), Keg.new(f.prefix("0.1"))]
+      expect(f.eligible_kegs_for_cleanup.sort_by(&:version)).to eq(eligible_kegs.sort_by(&:version))
     end
   end
 

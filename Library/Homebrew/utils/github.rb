@@ -13,12 +13,6 @@ module GitHub
 
   module_function
 
-  def open_api(url, data: nil, data_binary_path: nil, request_method: nil, scopes: [].freeze, parse_json: true)
-    odisabled "GitHub.open_api", "GitHub::API.open_rest"
-    API.open_rest(url, data: data, data_binary_path: data_binary_path, request_method: request_method,
-                  scopes: scopes, parse_json: parse_json)
-  end
-
   def check_runs(repo: nil, commit: nil, pr: nil)
     if pr
       repo = pr.fetch("base").fetch("repo").fetch("full_name")
@@ -37,13 +31,13 @@ module GitHub
   end
 
   def create_gist(files, description, private:)
-    url = "https://api.github.com/gists"
+    url = "#{API_URL}/gists"
     data = { "public" => !private, "files" => files, "description" => description }
     API.open_rest(url, data: data, scopes: CREATE_GIST_SCOPES)["html_url"]
   end
 
   def create_issue(repo, title, body)
-    url = "https://api.github.com/repos/#{repo}/issues"
+    url = "#{API_URL}/repos/#{repo}/issues"
     data = { "title" => title, "body" => body }
     API.open_rest(url, data: data, scopes: CREATE_ISSUE_FORK_OR_PR_SCOPES)["html_url"]
   end
@@ -498,7 +492,7 @@ module GitHub
         ohai "git checkout --no-track -b #{branch} #{remote}/#{remote_branch}"
         ohai "git commit --no-edit --verbose --message='#{commit_message}'" \
              " -- #{changed_files.join(" ")}"
-        ohai "git push --set-upstream $HUB_REMOTE #{branch}:#{branch}"
+        ohai "git push --set-upstream #{remote_url} #{branch}:#{branch}"
         ohai "git checkout --quiet #{previous_branch}"
         ohai "create pull request with GitHub API (base branch: #{remote_branch})"
       else

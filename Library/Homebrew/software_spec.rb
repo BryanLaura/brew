@@ -386,8 +386,11 @@ class Bottle
     raise ArgumentError, "Missing 'annotations' section." if manifests_annotations.blank?
 
     bottle_digest = @resource.checksum.hexdigest
+    image_ref = GitHubPackages.version_rebuild(@resource.version, rebuild, @tag.to_s)
     manifest_annotations = manifests_annotations.find do |m|
-      m["sh.brew.bottle.digest"] == bottle_digest
+      next if m["sh.brew.bottle.digest"] != bottle_digest
+
+      m["org.opencontainers.image.ref.name"] == image_ref
     end
     raise ArgumentError, "Couldn't find manifest matching bottle checksum." if manifest_annotations.blank?
 
@@ -488,7 +491,7 @@ class BottleSpecification
 
   def cellar(val = nil)
     if val.present?
-      odeprecated(
+      odisabled(
         "`cellar` in a bottle block",
         "`brew style --fix` on the formula to update the style or use `sha256` with a `cellar:` argument",
       )
@@ -549,7 +552,7 @@ class BottleSpecification
       end
 
       if digest && tag
-        odeprecated(
+        odisabled(
           '`sha256 "digest" => :tag` in a bottle block',
           '`brew style --fix` on the formula to update the style or use `sha256 tag: "digest"`',
         )

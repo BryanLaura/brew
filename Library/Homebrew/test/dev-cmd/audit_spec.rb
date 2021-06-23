@@ -488,6 +488,32 @@ module Homebrew
       end
     end
 
+    describe "#audit_formula_name" do
+      specify "no issue" do
+        fa = formula_auditor "foo", <<~RUBY, core_tap: true, strict: true
+          class Foo < Formula
+            url "https://brew.sh/foo-1.0.tgz"
+            homepage "https://brew.sh"
+          end
+        RUBY
+
+        fa.audit_formula_name
+        expect(fa.problems).to be_empty
+      end
+
+      specify "uppercase formula name" do
+        fa = formula_auditor "Foo", <<~RUBY
+          class Foo < Formula
+            url "https://brew.sh/Foo-1.0.tgz"
+            homepage "https://brew.sh"
+          end
+        RUBY
+
+        fa.audit_formula_name
+        expect(fa.problems.first[:message]).to match "must not contain uppercase letters"
+      end
+    end
+
     describe "#check_service_command" do
       specify "Not installed" do
         fa = formula_auditor "foo", <<~RUBY
@@ -1111,6 +1137,61 @@ module Homebrew
         fa.audit_versioned_keg_only
 
         expect(fa.problems).to be_empty
+      end
+    end
+
+    describe "#audit_conflicts" do
+      before do
+        # We don't really test FormulaTextAuditor here
+        allow(File).to receive(:open).and_return("")
+      end
+
+      specify "it warns when conflicting with non-existing formula" do
+        foo = formula("foo") do
+          url "https://brew.sh/bar-1.0.tgz"
+
+          conflicts_with "bar"
+        end
+
+        fa = described_class.new foo
+        fa.audit_conflicts
+
+        expect(fa.problems.first[:message])
+          .to match("Can't find conflicting formula \"bar\"")
+      end
+
+      specify "it warns when conflicting with itself" do
+        foo = formula("foo") do
+          url "https://brew.sh/bar-1.0.tgz"
+
+          conflicts_with "foo"
+        end
+        stub_formula_loader foo
+
+        fa = described_class.new foo
+        fa.audit_conflicts
+
+        expect(fa.problems.first[:message])
+          .to match("Formula should not conflict with itself")
+      end
+
+      specify "it warns when another formula does not have a symmetric conflict" do
+        foo = formula("foo") do
+          url "https://brew.sh/foo-1.0.tgz"
+        end
+        stub_formula_loader foo
+
+        bar = formula("bar") do
+          url "https://brew.sh/bar-1.0.tgz"
+
+          conflicts_with "foo"
+        end
+
+        fa = described_class.new bar
+        fa.audit_conflicts
+
+        expect(fa.problems.first[:message])
+          .to match("Formula foo should also have a conflict declared with bar")
       end
     end
   end
