@@ -275,7 +275,7 @@ module Formulary
     def load_file(flags:, ignore_errors:)
       if %r{githubusercontent.com/[\w-]+/[\w-]+/[a-f0-9]{40}(?:/Formula)?/(?<formula_name>[\w+-.@]+).rb} =~ url
         raise UsageError, "Installation of #{formula_name} from a GitHub commit URL is unsupported! " \
-                  "`brew extract #{formula_name}` to a stable tap on GitHub instead."
+                          "`brew extract #{formula_name}` to a stable tap on GitHub instead."
       elsif url.match?(%r{^(https?|ftp)://})
         raise UsageError, "Non-checksummed download of #{name} formula file from an arbitrary URL is unsupported! ",
               "`brew extract` or `brew create` and `brew tap-new` to create a "\
@@ -361,7 +361,9 @@ module Formulary
     end
 
     def get_formula(*)
-      raise CoreTapFormulaUnavailableError, name if !CoreTap.instance.installed? && ENV["HOMEBREW_JSON_CORE"].present?
+      if !CoreTap.instance.installed? && ENV["HOMEBREW_INSTALL_FROM_API"].present?
+        raise CoreTapFormulaUnavailableError, name
+      end
 
       raise FormulaUnavailableError, name
     end
@@ -397,7 +399,7 @@ module Formulary
   )
     raise ArgumentError, "Formulae must have a ref!" unless ref
 
-    if ENV["HOMEBREW_JSON_CORE"].present? &&
+    if ENV["HOMEBREW_INSTALL_FROM_API"].present? &&
        @formula_name_local_bottle_path_map.present? &&
        @formula_name_local_bottle_path_map.key?(ref)
       ref = @formula_name_local_bottle_path_map[ref]
@@ -429,7 +431,9 @@ module Formulary
   # @param formula_name the formula name string to map.
   # @param local_bottle_path a path pointing to the target bottle archive.
   def self.map_formula_name_to_local_bottle_path(formula_name, local_bottle_path)
-    raise UsageError, "HOMEBREW_JSON_CORE not set but required for #{__method__}!" if ENV["HOMEBREW_JSON_CORE"].blank?
+    if ENV["HOMEBREW_INSTALL_FROM_API"].blank?
+      raise UsageError, "HOMEBREW_INSTALL_FROM_API not set but required for #{__method__}!"
+    end
 
     @formula_name_local_bottle_path_map ||= {}
     @formula_name_local_bottle_path_map[formula_name] = Pathname(local_bottle_path).realpath

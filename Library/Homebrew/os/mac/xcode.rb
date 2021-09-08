@@ -32,7 +32,7 @@ module OS
         when "10.10" then "7.2.1"
         when "10.9"  then "6.2"
         else
-          raise "macOS '#{MacOS.version}' is invalid" unless OS::Mac.prerelease?
+          raise "macOS '#{MacOS.version}' is invalid" unless OS::Mac.version.prerelease?
 
           # Default to newest known version of Xcode for unreleased macOS versions.
           latest_stable
@@ -137,7 +137,7 @@ module OS
       end
 
       def installation_instructions
-        if OS::Mac.prerelease?
+        if OS::Mac.version.prerelease?
           <<~EOS
             Xcode can be installed from:
               #{Formatter.url("https://developer.apple.com/download/more/")}
@@ -151,7 +151,7 @@ module OS
 
       sig { returns(String) }
       def update_instructions
-        if OS::Mac.prerelease?
+        if OS::Mac.version.prerelease?
           <<~EOS
             Xcode can be updated from:
               #{Formatter.url("https://developer.apple.com/download/more/")}
@@ -336,7 +336,7 @@ module OS
       def minimum_version
         case MacOS.version
         when "12" then "13.0.0"
-        when "11" then "12.0.0"
+        when "11" then "12.5.0"
         when "10.15" then "11.0.0"
         when "10.14" then "10.0.0"
         when "10.13" then "9.0.0"

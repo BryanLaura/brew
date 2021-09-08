@@ -93,13 +93,13 @@ class SoftwareSpec
     !bottle_specification.collector.keys.empty?
   end
 
-  def bottle_tag?
-    bottle_specification.tag?(Utils::Bottles.tag)
+  def bottle_tag?(tag = nil)
+    bottle_specification.tag?(Utils::Bottles.tag(tag))
   end
 
-  def bottled?
-    bottle_tag? && \
-      (bottle_specification.compatible_locations? || owner.force_bottle)
+  def bottled?(tag = nil)
+    bottle_tag?(tag) && \
+      (tag.present? || bottle_specification.compatible_locations? || owner.force_bottle)
   end
 
   def bottle(disable_type = nil, disable_reason = nil, &block)
@@ -299,14 +299,14 @@ class Bottle
   def_delegators :resource, :url, :verify_download_integrity
   def_delegators :resource, :cached_download
 
-  def initialize(formula, spec)
+  def initialize(formula, spec, tag = nil)
     @name = formula.name
     @resource = Resource.new
     @resource.owner = formula
     @resource.specs[:bottle] = true
     @spec = spec
 
-    checksum, tag, cellar = spec.checksum_for(Utils::Bottles.tag)
+    checksum, tag, cellar = spec.checksum_for(Utils::Bottles.tag(tag))
 
     @prefix = spec.prefix
     @tag = tag

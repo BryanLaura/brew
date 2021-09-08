@@ -10,11 +10,15 @@ module Utils
   #
   # @api private
   module Curl
+    extend T::Sig
+
     using TimeRemaining
 
     module_function
 
-    def curl_executable
+    def curl_executable(use_homebrew_curl: false)
+      return Formula["curl"].opt_bin/"curl" if use_homebrew_curl
+
       @curl ||= [
         ENV["HOMEBREW_CURL"],
         which("curl"),
@@ -25,45 +29,73 @@ module Utils
       @curl
     end
 
-    def curl_args(*extra_args, **options)
+    sig {
+      params(
+        extra_args:      T.untyped,
+        connect_timeout: T.any(Integer, Float, NilClass),
+        max_time:        T.any(Integer, Float, NilClass),
+        retries:         T.nilable(Integer),
+        retry_max_time:  T.any(Integer, Float, NilClass),
+        show_output:     T.nilable(T::Boolean),
+        user_agent:      T.any(String, Symbol, NilClass),
+      ).returns(T::Array[T.untyped])
+    }
+    def curl_args(
+      *extra_args,
+      connect_timeout: nil,
+      max_time: nil,
+      retries: Homebrew::EnvConfig.curl_retries.to_i,
+      retry_max_time: nil,
+      show_output: false,
+      user_agent: nil
+    )
       args = []
 
       # do not load .curlrc unless requested (must be the first argument)
       args << "--disable" unless Homebrew::EnvConfig.curlrc?
 
+      # echo any cookies received on a redirect
+      args << "--cookie-jar" << "/dev/null"
+
       args << "--globoff"
 
       args << "--show-error"
 
-      args << "--user-agent" << case options[:user_agent]
+      args << "--user-agent" << case user_agent
       when :browser, :fake
         HOMEBREW_USER_AGENT_FAKE_SAFARI
       when :default, nil
         HOMEBREW_USER_AGENT_CURL
       when String
-        options[:user_agent]
+        user_agent
+      else
+        raise TypeError, ":user_agent must be :browser/:fake, :default, or a String"
       end
 
       args << "--header" << "Accept-Language: en"
 
-      unless options[:show_output] == true
+      unless show_output == true
         args << "--fail"
         args << "--progress-bar" unless Context.current.verbose?
         args << "--verbose" if Homebrew::EnvConfig.curl_verbose?
         args << "--silent" unless $stdout.tty?
       end
 
-      args << "--connect-timeout" << connect_timeout.round(3) if options[:connect_timeout]
-      args << "--max-time" << max_time.round(3) if options[:max_time]
-      args << "--retry" << Homebrew::EnvConfig.curl_retries unless options[:retry] == false
-      args << "--retry-max-time" << retry_max_time.round if options[:retry_max_time]
+      args << "--connect-timeout" << connect_timeout.round(3) if connect_timeout.present?
+      args << "--max-time" << max_time.round(3) if max_time.present?
+
+      # A non-positive integer (e.g., 0) or `nil` will omit this argument
+      args << "--retry" << retries if retries&.positive?
+
+      args << "--retry-max-time" << retry_max_time.round if retry_max_time.present?
 
       args + extra_args
     end
 
     def curl_with_workarounds(
       *args,
-      secrets: nil, print_stdout: nil, print_stderr: nil, debug: nil, verbose: nil, env: {}, timeout: nil, **options
+      secrets: nil, print_stdout: nil, print_stderr: nil, debug: nil,
+      verbose: nil, env: {}, timeout: nil, use_homebrew_curl: false, **options
     )
       end_time = Time.now + timeout if timeout
 
@@ -77,7 +109,7 @@ module Utils
 
       # SSL_CERT_FILE can be incorrectly set by users or portable-ruby and screw
       # with SSL downloads so unset it here.
-      result = system_command curl_executable,
+      result = system_command curl_executable(use_homebrew_curl: use_homebrew_curl),
                               args:    curl_args(*args, **options),
                               env:     { "SSL_CERT_FILE" => nil }.merge(env),
                               timeout: end_time&.remaining,
@@ -173,7 +205,7 @@ module Utils
     end
 
     def curl_check_http_content(url, url_type, specs: {}, user_agents: [:default],
-                                check_content: false, strict: false)
+                                check_content: false, strict: false, use_homebrew_curl: false)
       return unless url.start_with? "http"
 
       secure_url = url.sub(/\Ahttp:/, "https:")
@@ -182,8 +214,13 @@ module Utils
       if url != secure_url
         user_agents.each do |user_agent|
           secure_details = begin
-            curl_http_content_headers_and_checksum(secure_url, specs: specs, hash_needed: true,
-                                                   user_agent: user_agent)
+            curl_http_content_headers_and_checksum(
+              secure_url,
+              specs:             specs,
+              hash_needed:       true,
+              use_homebrew_curl: use_homebrew_curl,
+              user_agent:        user_agent,
+            )
           rescue Timeout::Error
             next
           end
@@ -199,7 +236,13 @@ module Utils
       details = nil
       user_agents.each do |user_agent|
         details =
-          curl_http_content_headers_and_checksum(url, specs: specs, hash_needed: hash_needed, user_agent: user_agent)
+          curl_http_content_headers_and_checksum(
+            url,
+            specs:             specs,
+            hash_needed:       hash_needed,
+            use_homebrew_curl: use_homebrew_curl,
+            user_agent:        user_agent,
+          )
         break if http_status_ok?(details[:status])
       end
 
@@ -264,15 +307,21 @@ module Utils
       "The #{url_type} #{url} may be able to use HTTPS rather than HTTP. Please verify it in a browser."
     end
 
-    def curl_http_content_headers_and_checksum(url, specs: {}, hash_needed: false, user_agent: :default)
+    def curl_http_content_headers_and_checksum(
+      url, specs: {}, hash_needed: false,
+      use_homebrew_curl: false, user_agent: :default
+    )
       file = Tempfile.new.tap(&:close)
 
       specs = specs.flat_map { |option, argument| ["--#{option.to_s.tr("_", "-")}", argument] }
-      max_time = hash_needed ? "600" : "25"
+      max_time = hash_needed ? 600 : 25
       output, _, status = curl_output(
-        *specs, "--dump-header", "-", "--output", file.path, "--location",
-        "--connect-timeout", "15", "--max-time", max_time, "--retry-max-time", max_time, url,
-        user_agent: user_agent
+        *specs, "--dump-header", "-", "--output", file.path, "--location", url,
+        use_homebrew_curl: use_homebrew_curl,
+        connect_timeout:   15,
+        max_time:          max_time,
+        retry_max_time:    max_time,
+        user_agent:        user_agent
       )
 
       status_code = :unknown

@@ -88,6 +88,7 @@ module Cask
     end
 
     def install
+      start_time = Time.now
       odebug "Cask::Installer#install"
 
       old_config = @cask.config
@@ -115,6 +116,8 @@ module Cask
       purge_backed_up_versioned_files
 
       puts summary
+      end_time = Time.now
+      Homebrew.messages.package_installed(@cask.token, end_time - start_time)
     rescue
       restore_backup
       raise
@@ -399,10 +402,10 @@ module Cask
     def save_caskfile
       old_savedir = @cask.metadata_timestamped_path
 
-      return unless @cask.sourcefile_path
+      return if @cask.source.blank?
 
       savedir = @cask.metadata_subdir("Casks", timestamp: :now, create: true)
-      FileUtils.copy @cask.sourcefile_path, savedir
+      (savedir/"#{@cask.token}.rb").write @cask.source
       old_savedir&.rmtree
     end
 
@@ -538,7 +541,7 @@ module Cask
 
         @cask.metadata_versioned_path.rmdir_if_possible
       end
-      @cask.metadata_master_container_path.rmdir_if_possible unless upgrade?
+      @cask.metadata_main_container_path.rmdir_if_possible unless upgrade?
 
       # toplevel staged distribution
       @cask.caskroom_path.rmdir_if_possible unless upgrade?

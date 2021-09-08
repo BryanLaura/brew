@@ -11,6 +11,7 @@ require "utils/inreplace"
 require "erb"
 require "archive"
 require "zlib"
+require "api"
 
 BOTTLE_ERB = <<-EOS
   bottle do
@@ -333,8 +334,6 @@ module Homebrew
 
     root_url = args.root_url
 
-    formulae_brew_sh_path = Utils::Analytics.formula_path
-
     relocatable = T.let(false, T::Boolean)
     skip_relocation = T.let(false, T::Boolean)
 
@@ -399,6 +398,8 @@ module Homebrew
         keg.find do |file|
           # Set the times for reproducible bottles.
           if file.symlink?
+            # Need to make symlink permissions consistent on macOS and Linux
+            File.lchmod 0777, file if OS.mac?
             File.lutime(tab.source_modified_time, tab.source_modified_time, file)
           else
             file.utime(tab.source_modified_time, tab.source_modified_time)
@@ -559,7 +560,7 @@ module Homebrew
               "filename"              => filename.url_encode,
               "local_filename"        => filename.to_s,
               "sha256"                => sha256,
-              "formulae_brew_sh_path" => formulae_brew_sh_path,
+              "formulae_brew_sh_path" => Homebrew::API::Formula.formula_api_path,
               "tab"                   => tab.to_bottle_hash,
             },
           },

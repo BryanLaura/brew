@@ -1,4 +1,4 @@
-# typed: false
+# typed: true
 # frozen_string_literal: true
 
 module Homebrew
@@ -31,12 +31,37 @@ module Homebrew
           /(?<project_name>[^/]+) # The Launchpad project name
         }ix.freeze
 
+        # The default regex used to identify the latest version when a regex
+        # isn't provided.
+        DEFAULT_REGEX = %r{class="[^"]*version[^"]*"[^>]*>\s*Latest version is (.+)\s*</}.freeze
+
         # Whether the strategy can be applied to the provided URL.
         #
         # @param url [String] the URL to match against
         # @return [Boolean]
+        sig { params(url: String).returns(T::Boolean) }
         def self.match?(url)
           URL_MATCH_REGEX.match?(url)
+        end
+
+        # Extracts information from a provided URL and uses it to generate
+        # various input values used by the strategy to check for new versions.
+        # Some of these values act as defaults and can be overridden in a
+        # `livecheck` block.
+        #
+        # @param url [String] the URL used to generate values
+        # @return [Hash]
+        sig { params(url: String).returns(T::Hash[Symbol, T.untyped]) }
+        def self.generate_input_values(url)
+          values = {}
+
+          match = url.match(URL_MATCH_REGEX)
+          return values if match.blank?
+
+          # The main page for the project on Launchpad
+          values[:url] = "https://launchpad.net/#{match[:project_name]}/"
+
+          values
         end
 
         # Generates a URL and regex (if one isn't provided) and passes them
@@ -47,22 +72,18 @@ module Homebrew
         # @return [Hash]
         sig {
           params(
-            url:   String,
-            regex: T.nilable(Regexp),
-            cask:  T.nilable(Cask::Cask),
-            block: T.nilable(T.proc.params(arg0: String).returns(T.any(T::Array[String], String))),
+            url:    String,
+            regex:  T.nilable(Regexp),
+            unused: T.nilable(T::Hash[Symbol, T.untyped]),
+            block:  T.nilable(
+              T.proc.params(arg0: String, arg1: Regexp).returns(T.any(String, T::Array[String], NilClass)),
+            ),
           ).returns(T::Hash[Symbol, T.untyped])
         }
-        def self.find_versions(url, regex, cask: nil, &block)
-          match = url.match(URL_MATCH_REGEX)
+        def self.find_versions(url:, regex: nil, **unused, &block)
+          generated = generate_input_values(url)
 
-          # The main page for the project on Launchpad
-          page_url = "https://launchpad.net/#{match[:project_name]}"
-
-          # The default regex is the same for all URLs using this strategy
-          regex ||= %r{class="[^"]*version[^"]*"[^>]*>\s*Latest version is (.+)\s*</}
-
-          PageMatch.find_versions(page_url, regex, cask: cask, &block)
+          T.unsafe(PageMatch).find_versions(url: generated[:url], regex: regex || DEFAULT_REGEX, **unused, &block)
         end
       end
     end

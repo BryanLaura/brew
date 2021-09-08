@@ -393,10 +393,7 @@ module Homebrew
 
       if formula.keg_only?
         return if formula.keg_only_reason.versioned_formula?
-        if formula.name.start_with?("openssl", "libressl") &&
-           formula.keg_only_reason.by_macos?
-          return
-        end
+        return if formula.name.start_with?("openssl", "libressl") && formula.keg_only_reason.by_macos?
       end
 
       return if tap_audit_exception :versioned_keg_only_allowlist, formula.name
@@ -415,11 +412,21 @@ module Homebrew
 
       return unless DevelopmentTools.curl_handles_most_https_certificates?
 
+      use_homebrew_curl = false
+      %w[Stable HEAD].each do |name|
+        spec_name = name.downcase.to_sym
+        next unless (spec = formula.send(spec_name))
+
+        use_homebrew_curl = spec.using == :homebrew_curl
+        break if use_homebrew_curl
+      end
+
       if (http_content_problem = curl_check_http_content(homepage,
                                                          "homepage URL",
-                                                         user_agents:   [:browser, :default],
-                                                         check_content: true,
-                                                         strict:        @strict))
+                                                         user_agents:       [:browser, :default],
+                                                         check_content:     true,
+                                                         strict:            @strict,
+                                                         use_homebrew_curl: use_homebrew_curl))
         problem http_content_problem
       end
     end
@@ -438,13 +445,16 @@ module Homebrew
 
     def audit_bottle_disabled
       return unless formula.bottle_disabled?
-      return if formula.bottle_unneeded?
 
-      problem "Unrecognized bottle modifier" unless formula.bottle_disable_reason.valid?
-
-      return unless @core_tap
-
-      problem "Formulae in homebrew/core should not use `bottle :disabled`"
+      if !formula.bottle_disable_reason.valid?
+        problem "Unrecognized bottle modifier"
+      elsif @core_tap
+        if formula.bottle_unneeded?
+          problem "Formulae in homebrew/core should not use `bottle :unneeded`"
+        else
+          problem "Formulae in homebrew/core should not use `bottle :disabled`"
+        end
+      end
     end
 
     def audit_github_repository_archived
@@ -523,9 +533,16 @@ module Homebrew
         spec_name = name.downcase.to_sym
         next unless (spec = formula.send(spec_name))
 
+        except = @except.to_a
+        if spec_name == :head &&
+           tap_audit_exception(:head_non_default_branch_allowlist, formula.name, spec.specs[:branch])
+          except << "head_branch"
+        end
+
         ra = ResourceAuditor.new(
           spec, spec_name,
-          online: @online, strict: @strict, only: @only, except: @except
+          online: @online, strict: @strict, only: @only, except: except,
+          use_homebrew_curl: spec.using == :homebrew_curl
         ).audit
         ra.problems.each do |message|
           problem "#{name}: #{message}"
@@ -552,14 +569,6 @@ module Homebrew
         )
       end
 
-      if (stable = formula.stable)
-        version = stable.version
-        problem "Stable: version (#{version}) is set to a string without a digit" if version.to_s !~ /\d/
-        if version.to_s.start_with?("HEAD")
-          problem "Stable: non-HEAD version name (#{version}) should not begin with HEAD"
-        end
-      end
-
       return unless @core_tap
 
       if formula.head && @versioned_formula &&
@@ -571,7 +580,14 @@ module Homebrew
       return unless stable
       return unless stable.url
 
-      stable_version_string = stable.version.to_s
+      version = stable.version
+      problem "Stable: version (#{version}) is set to a string without a digit" if version.to_s !~ /\d/
+
+      stable_version_string = version.to_s
+      if stable_version_string.start_with?("HEAD")
+        problem "Stable: non-HEAD version name (#{stable_version_string}) should not begin with HEAD"
+      end
+
       stable_url_version = Version.parse(stable.url)
       stable_url_minor_version = stable_url_version.minor.to_i
 

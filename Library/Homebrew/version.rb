@@ -39,6 +39,7 @@ class Version
       when /\A#{PostToken::PATTERN}\z/o    then PostToken
       when /\A#{NumericToken::PATTERN}\z/o then NumericToken
       when /\A#{StringToken::PATTERN}\z/o  then StringToken
+      else raise "Cannot find a matching token pattern"
       end.new(val)
     end
 
@@ -415,7 +416,7 @@ class Version
     # e.g. foobar-4.5.1-1
     # e.g. unrtf_0.20.4-1
     # e.g. ruby-1.9.1-p243
-    StemParser.new(/[_-](#{NUMERIC_WITH_DOTS}-(?:p|rc|RC)?\d+)#{CONTENT_SUFFIX}?$/),
+    StemParser.new(/[_-](#{NUMERIC_WITH_DOTS}-(?:p|P|rc|RC)?\d+)#{CONTENT_SUFFIX}?$/),
 
     # Hyphenated versions without software-name prefix (e.g. brew-)
     # e.g. v0.0.8-12.tar.gz

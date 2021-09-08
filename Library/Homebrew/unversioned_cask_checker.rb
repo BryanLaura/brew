@@ -31,6 +31,11 @@ module Homebrew
       @apps ||= @cask.artifacts.select { |a| a.is_a?(Cask::Artifact::App) }
     end
 
+    sig { returns(T::Array[Cask::Artifact::Qlplugin]) }
+    def qlplugins
+      @qlplugins ||= @cask.artifacts.select { |a| a.is_a?(Cask::Artifact::Qlplugin) }
+    end
+
     sig { returns(T::Array[Cask::Artifact::Pkg]) }
     def pkgs
       @pkgs ||= @cask.artifacts.select { |a| a.is_a?(Cask::Artifact::Pkg) }
@@ -39,6 +44,11 @@ module Homebrew
     sig { returns(T::Boolean) }
     def single_app_cask?
       apps.count == 1
+    end
+
+    sig { returns(T::Boolean) }
+    def single_qlplugin_cask?
+      qlplugins.count == 1
     end
 
     sig { returns(T::Boolean) }
@@ -78,8 +88,8 @@ module Homebrew
 
         installer.extract_primary_container(to: dir)
 
-        info_plist_paths = apps.flat_map do |app|
-          top_level_info_plists(Pathname.glob(dir/"**"/app.source.basename/"Contents"/"Info.plist")).sort
+        info_plist_paths = apps.concat(qlplugins).flat_map do |artifact|
+          top_level_info_plists(Pathname.glob(dir/"**"/artifact.source.basename/"Contents"/"Info.plist")).sort
         end
 
         info_plist_paths.each(&parse_info_plist)
@@ -112,8 +122,8 @@ module Homebrew
 
     sig { returns(T.nilable(String)) }
     def guess_cask_version
-      if apps.empty? && pkgs.empty?
-        opoo "Cask #{cask} does not contain any apps or PKG installers."
+      if apps.empty? && pkgs.empty? && qlplugins.empty?
+        opoo "Cask #{cask} does not contain any apps, qlplugins or PKG installers."
         return
       end
 
@@ -176,13 +186,13 @@ module Homebrew
 
             distribution_path = extract_dir/"Distribution"
             if distribution_path.exist?
-              Homebrew.install_bundler_gems!
-              require "nokogiri"
+              require "rexml/document"
 
-              xml = Nokogiri::XML(distribution_path.read)
+              xml = REXML::Document.new(distribution_path.read)
 
-              product_version = xml.xpath("//installer-gui-script//product").first&.attr("version")
-              return product_version if product_version
+              product = xml.get_elements("//installer-gui-script//product").first
+              product_version = product["version"] if product
+              return product_version if product_version.present?
             end
 
             opoo "#{pkg_path.basename} contains multiple packages: #{packages}" if packages.count != 1

@@ -22,7 +22,8 @@ module Homebrew
       @strict    = options[:strict]
       @only      = options[:only]
       @except    = options[:except]
-      @problems  = []
+      @use_homebrew_curl = options[:use_homebrew_curl]
+      @problems = []
     end
 
     def audit
@@ -110,7 +111,14 @@ module Homebrew
 
         strategy = DownloadStrategyDetector.detect(url, using)
         if strategy <= CurlDownloadStrategy && !url.start_with?("file")
-          if (http_content_problem = curl_check_http_content(url, "source URL", specs: specs))
+
+          raise HomebrewCurlDownloadStrategyError, url if
+            strategy <= HomebrewCurlDownloadStrategy && !Formula["curl"].any_version_installed?
+
+          if (http_content_problem = curl_check_http_content(url,
+                                                             "source URL",
+                                                             specs:             specs,
+                                                             use_homebrew_curl: @use_homebrew_curl))
             problem http_content_problem
           end
         elsif strategy <= GitDownloadStrategy
@@ -122,6 +130,20 @@ module Homebrew
           problem "The URL #{url} is not a valid svn URL" unless Utils::Svn.remote_exists? url
         end
       end
+    end
+
+    def audit_head_branch
+      return unless @online
+      return unless @strict
+      return if spec_name != :head
+      return unless Utils::Git.remote_exists?(url)
+
+      branch = Utils.popen_read("git", "ls-remote", "--symref", url, "HEAD")
+                    .match(%r{ref: refs/heads/(.*?)\s+HEAD})[1]
+
+      return if branch == specs[:branch]
+
+      problem "Use `branch: \"#{branch}\"` to specify the default branch"
     end
 
     def problem(text)

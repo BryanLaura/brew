@@ -161,11 +161,7 @@ module Homebrew
         end
         @parser.public_send(method, *names, *wrap_option_desc(description)) do |value|
           odisabled "the `#{names.first}` switch", replacement unless replacement.nil?
-          value = if names.any? { |name| name.start_with?("--[no-]") }
-            value
-          else
-            true
-          end
+          value = true if names.none? { |name| name.start_with?("--[no-]") }
 
           set_switch(*names, value: value, from: :args)
         end
@@ -268,6 +264,7 @@ module Homebrew
         remaining = []
 
         argv, non_options = split_non_options(argv)
+        allow_commands = Array(@named_args_type).include?(:command)
 
         while i < argv.count
           begin
@@ -283,7 +280,7 @@ module Homebrew
               i += 1
             end
           rescue OptionParser::InvalidOption
-            if ignore_invalid_options
+            if ignore_invalid_options || (allow_commands && Commands.path(arg))
               remaining << arg
             else
               $stderr.puts generate_help_text

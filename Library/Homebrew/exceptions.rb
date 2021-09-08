@@ -561,7 +561,7 @@ class BuildFlagsError < RuntimeError
       The following #{flag_text}:
         #{flags.join(", ")}
       #{require_text} building tools, but none are installed.
-      #{DevelopmentTools.installation_instructions}#{bottle_text}
+      #{DevelopmentTools.installation_instructions} #{bottle_text}
     EOS
 
     super message
@@ -599,6 +599,13 @@ class CurlDownloadStrategyError < RuntimeError
     else
       super "Download failed: #{url}"
     end
+  end
+end
+
+# Raised in {HomebrewCurlDownloadStrategy#fetch}.
+class HomebrewCurlDownloadStrategyError < CurlDownloadStrategyError
+  def initialize(url)
+    super "Homebrew-installed `curl` is not installed for: #{url}"
   end
 end
 

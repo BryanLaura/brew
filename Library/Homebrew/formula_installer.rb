@@ -246,7 +246,7 @@ class FormulaInstaller
       # check fails)
       elsif !Homebrew::EnvConfig.developer? &&
             (!installed_as_dependency? || !formula.any_version_installed?) &&
-            (!OS.mac? || !OS::Mac.outdated_release?)
+            (!OS.mac? || !OS::Mac.version.outdated_release?)
         <<~EOS
           #{formula}: no bottle available!
         EOS
@@ -441,7 +441,7 @@ class FormulaInstaller
 
     opoo "Nothing was installed to #{formula.prefix}" unless formula.latest_version_installed?
     end_time = Time.now
-    Homebrew.messages.formula_installed(formula, end_time - start_time)
+    Homebrew.messages.package_installed(formula.name, end_time - start_time)
   end
 
   def check_conflicts
@@ -501,7 +501,7 @@ class FormulaInstaller
 
     req_map.each_pair do |dependent, reqs|
       reqs.each do |req|
-        next if dependent.latest_version_installed? && req.name == "maximummacos"
+        next if dependent.latest_version_installed? && req.name == "macos" && req.comparator == "<="
 
         @requirement_messages << "#{dependent}: #{req.message}"
         fatals << req if req.fatal?
@@ -754,10 +754,10 @@ class FormulaInstaller
 
     ohai "Finishing up" if verbose?
 
-    install_service
-
     keg = Keg.new(formula.prefix)
     link(keg)
+
+    install_service
 
     fix_dynamic_linkage(keg) if !@poured_bottle || !formula.bottle_specification.skip_relocation?
 
@@ -1194,6 +1194,12 @@ class FormulaInstaller
       problem_if_output(check_env_path(formula.sbin))
     end
     super
+  end
+
+  # This is a stub for calls made to this method at install time.
+  # Exceptions are correctly identified when doing `brew audit`.
+  def tap_audit_exception(*)
+    true
   end
 
   def self.locked

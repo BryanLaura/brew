@@ -2,6 +2,8 @@
 # frozen_string_literal: true
 
 require "erb"
+require "io/console"
+require "pty"
 require "tempfile"
 
 # Helper class for running a sub-process inside of a sandboxed environment.
@@ -96,22 +98,52 @@ class Sandbox
     @start = Time.now
 
     begin
-      T.unsafe(self).safe_system SANDBOX_EXEC, "-f", seatbelt.path, *args
+      command = [SANDBOX_EXEC, "-f", seatbelt.path, *args]
+      # Start sandbox in a pseudoterminal to prevent access of the parent terminal.
+      T.unsafe(PTY).spawn(*command) do |r, w, pid|
+        # Set the PTY's window size to match the parent terminal.
+        # Some formula tests are sensitive to the terminal size and fail if this is not set.
+        winch = proc do |_sig|
+          w.winsize = if $stdout.tty?
+            # We can only use IO#winsize if the IO object is a TTY.
+            $stdout.winsize
+          else
+            # Otherwise, default to tput, if available.
+            # This relies on ncurses rather than the system's ioctl.
+            [Utils.popen_read("tput", "lines").to_i, Utils.popen_read("tput", "cols").to_i]
+          end
+        end
+        # Update the window size whenever the parent terminal's window size changes.
+        old_winch = trap(:WINCH, &winch)
+        winch.call(nil)
+
+        $stdin.raw! if $stdin.tty?
+        stdin_thread = Thread.new { IO.copy_stream($stdin, w) }
+
+        r.each_char { |c| print(c) }
+
+        Process.wait(pid)
+      ensure
+        stdin_thread&.kill
+        $stdin.cooked! if $stdin.tty?
+        trap(:WINCH, old_winch)
+      end
+      raise ErrorDuringExecution.new(command, status: $CHILD_STATUS) unless $CHILD_STATUS.success?
     rescue
       @failed = true
       raise
     ensure
       seatbelt.unlink
       sleep 0.1 # wait for a bit to let syslog catch up the latest events.
-      syslog_args = %W[
-        -F $((Time)(local))\ $(Sender)[$(PID)]:\ $(Message)
-        -k Time ge #{@start.to_i}
-        -k Message S deny
-        -k Sender kernel
-        -o
-        -k Time ge #{@start.to_i}
-        -k Message S deny
-        -k Sender sandboxd
+      syslog_args = [
+        "-F", "$((Time)(local)) $(Sender)[$(PID)]: $(Message)",
+        "-k", "Time", "ge", @start.to_i.to_s,
+        "-k", "Message", "S", "deny",
+        "-k", "Sender", "kernel",
+        "-o",
+        "-k", "Time", "ge", @start.to_i.to_s,
+        "-k", "Message", "S", "deny",
+        "-k", "Sender", "sandboxd"
       ]
       logs = Utils.popen_read("syslog", *syslog_args)
 

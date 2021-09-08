@@ -66,7 +66,7 @@ Homebrew's [Technical Steering Committee](https://docs.brew.sh/Homebrew-Governan
 
 Homebrew's Linux maintainers are [Daniel Nachun](https://github.com/danielnachun), [Dawid Dziurla](https://github.com/dawidd6), [Issy Long](https://github.com/issyl0), [Jonathan Chang](https://github.com/jonchang), [Michka Popoff](https://github.com/iMichka) and [Shaun Jackman](https://github.com/sjackman).
 
-Homebrew's other current maintainers are [Alexander Bayandin](https://github.com/bayandin), [Bevan Kay](https://github.com/bevanjkay), [Caleb Xu](https://github.com/alebcay), [Carlo Cabrera](https://github.com/carlocab), [Claudia Pellegrino](https://github.com/claui), [Connor Mann](https://github.com/cnnrmnn), [Dustin Rodrigues](https://github.com/dtrodrigues), [Eric Knibbe](https://github.com/EricFromCanada), [Maxim Belkin](https://github.com/maxim-belkin), [Miccal Matthews](https://github.com/miccal), [Michael Cho](https://github.com/cho-m), [Nanda H Krishna](https://github.com/nandahkrishna), [Randall](https://github.com/ran-dall), [Sam Ford](https://github.com/samford), [Steve Peters](https://github.com/scpeters), [Thierry Moisan](https://github.com/Moisan), [Tom Schoonjans](https://github.com/tschoonj), [Vítor Galvão](https://github.com/vitorgalvao) and [rui](https://github.com/chenrui333).
+Homebrew's other current maintainers are [Alexander Bayandin](https://github.com/bayandin), [Bevan Kay](https://github.com/bevanjkay), [Branch Vincent](https://github.com/branchvincent), [Caleb Xu](https://github.com/alebcay), [Carlo Cabrera](https://github.com/carlocab), [Claudia Pellegrino](https://github.com/claui), [Connor Mann](https://github.com/cnnrmnn), [Dustin Rodrigues](https://github.com/dtrodrigues), [Eric Knibbe](https://github.com/EricFromCanada), [Maxim Belkin](https://github.com/maxim-belkin), [Miccal Matthews](https://github.com/miccal), [Michael Cho](https://github.com/cho-m), [Nanda H Krishna](https://github.com/nandahkrishna), [Randall](https://github.com/ran-dall), [Sam Ford](https://github.com/samford), [Steve Peters](https://github.com/scpeters), [Thierry Moisan](https://github.com/Moisan), [Tom Schoonjans](https://github.com/tschoonj), [Vítor Galvão](https://github.com/vitorgalvao) and [rui](https://github.com/chenrui333).
 
 Former maintainers with significant contributions include [Jan Viljanen](https://github.com/javian), [JCount](https://github.com/jcount), [commitay](https://github.com/commitay), [Dominyk Tiller](https://github.com/DomT4), [Tim Smith](https://github.com/tdsmith), [Baptiste Fontaine](https://github.com/bfontaine), [Xu Cheng](https://github.com/xu-cheng), [Martin Afanasjew](https://github.com/UniqMartin), [Brett Koonce](https://github.com/asparagui), [Charlie Sharpsteen](https://github.com/Sharpie), [Jack Nagel](https://github.com/jacknagel), [Adam Vandenberg](https://github.com/adamv), [Andrew Janke](https://github.com/apjanke), [Alex Dunn](https://github.com/dunn), [neutric](https://github.com/neutric), [Tomasz Pajor](https://github.com/nijikon), [Uladzislau Shablinski](https://github.com/vladshablinsky), [Alyssa Ross](https://github.com/alyssais), [ilovezfs](https://github.com/ilovezfs), [Chongyu Zhu](https://github.com/lembacon) and Homebrew's creator: [Max Howell](https://github.com/mxcl).
 
@@ -90,10 +90,14 @@ Secure password storage and syncing is provided by [1Password for Teams](https:/
 
 [![1Password](https://1password.com/img/redesign/press/logo.c757be5591a513da9c768f8b80829318.svg)](https://1password.com)
 
+Flaky test detection and tracking is provided by [BuildPulse](https://buildpulse.io/).
+
+[![BuildPulse](https://user-images.githubusercontent.com/2988/130445500-96f44c87-e7dd-4da0-9877-7e5b1618e144.png)](https://buildpulse.io)
+
 Homebrew is a member of the [Software Freedom Conservancy](https://sfconservancy.org).
 
 [![Software Freedom Conservancy](https://sfconservancy.org/img/conservancy_64x64.png)](https://sfconservancy.org)
 
-Homebrew is generously supported by [Substack](https://github.com/substackinc), [GitHub](https://github.com/githubsponsors), [Randy Reddig](https://github.com/ydnar), [embark-studios](https://github.com/embark-studios), [Realist.ai](https://github.com/RealistAI) and many other users and organisations via [GitHub Sponsors](https://github.com/sponsors/Homebrew).
+Homebrew is generously supported by [Substack](https://github.com/substackinc), [Randy Reddig](https://github.com/ydnar), [embark-studios](https://github.com/embark-studios), [CodeCrafters](https://github.com/codecrafters-io) and many other users and organisations via [GitHub Sponsors](https://github.com/sponsors/Homebrew).
 
-[![Substack](https://github.com/substackinc.png?size=64)](https://github.com/substackinc)[![GitHub](https://github.com/githubsponsors.png?size=64)](https://github.com/githubsponsors)
+[![Substack](https://github.com/substackinc.png?size=64)](https://github.com/substackinc)
