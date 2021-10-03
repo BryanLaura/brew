@@ -14,7 +14,7 @@ VENDOR_DIR="${HOMEBREW_LIBRARY}/Homebrew/vendor"
 # Built from https://github.com/Homebrew/homebrew-portable-ruby.
 if [[ -n "${HOMEBREW_MACOS}" ]]
 then
-  if [[ "${HOMEBREW_PROCESSOR}" = "Intel" ]]
+  if [[ "${HOMEBREW_PROCESSOR}" == "Intel" ]]
   then
     ruby_FILENAME="portable-ruby-2.6.3_2.yosemite.bottle.tar.gz"
     ruby_SHA="b065e5e3783954f3e65d8d3a6377ca51649bfcfa21b356b0dd70490f74c6bd86"
@@ -26,7 +26,7 @@ then
       ruby_FILENAME="portable-ruby-2.6.3_2.x86_64_linux.bottle.tar.gz"
       ruby_SHA="97e639a64dcec285392b53ad804b5334c324f1d2a8bdc2b5087b8bf8051e332f"
       ;;
-    *)
+    *) ;;
   esac
 fi
 
@@ -34,12 +34,24 @@ fi
 # shellcheck disable=SC2034
 if [[ -n "${ruby_SHA}" && -n "${ruby_FILENAME}" ]]
 then
-  ruby_URL="https://ghcr.io/v2/homebrew/portable-ruby/portable-ruby/blobs/sha256:${ruby_SHA}"
-  ruby_URL2="https://github.com/Homebrew/homebrew-portable-ruby/releases/download/2.6.3_2/${ruby_FILENAME}"
+  ruby_URLs=()
+  if [[ -n "${HOMEBREW_ARTIFACT_DOMAIN}" ]]
+  then
+    ruby_URLs+=("${HOMEBREW_ARTIFACT_DOMAIN}/v2/homebrew/portable-ruby/portable-ruby/blobs/sha256:${ruby_SHA}")
+  fi
+  if [[ -n "${HOMEBREW_BOTTLE_DOMAIN}" ]]
+  then
+    ruby_URLs+=("${HOMEBREW_BOTTLE_DOMAIN}/bottles-portable-ruby/${ruby_FILENAME}")
+  fi
+  ruby_URLs+=(
+    "https://ghcr.io/v2/homebrew/portable-ruby/portable-ruby/blobs/sha256:${ruby_SHA}"
+    "https://github.com/Homebrew/homebrew-portable-ruby/releases/download/2.6.3_2/${ruby_FILENAME}"
+  )
+  ruby_URL="${ruby_URLs[0]}"
 fi
 
 check_linux_glibc_version() {
-  if [[ -z ${HOMEBREW_LINUX} || -z ${HOMEBREW_LINUX_MINIMUM_GLIBC_VERSION} ]]
+  if [[ -z "${HOMEBREW_LINUX}" || -z "${HOMEBREW_LINUX_MINIMUM_GLIBC_VERSION}" ]]
   then
     return 0
   fi
@@ -48,15 +60,15 @@ check_linux_glibc_version() {
   local glibc_version_major
   local glibc_version_minor
 
-  local minimum_required_major=${HOMEBREW_LINUX_MINIMUM_GLIBC_VERSION%.*}
-  local minimum_required_minor=${HOMEBREW_LINUX_MINIMUM_GLIBC_VERSION#*.}
+  local minimum_required_major="${HOMEBREW_LINUX_MINIMUM_GLIBC_VERSION%.*}"
+  local minimum_required_minor="${HOMEBREW_LINUX_MINIMUM_GLIBC_VERSION#*.}"
 
-  if [[ $(/usr/bin/ldd --version) =~ \ [0-9]\.[0-9]+ ]]
+  if [[ "$(/usr/bin/ldd --version)" =~ \ [0-9]\.[0-9]+ ]]
   then
-    glibc_version=${BASH_REMATCH[0]// /}
-    glibc_version_major=${glibc_version%.*}
-    glibc_version_minor=${glibc_version#*.}
-    if (( glibc_version_major < minimum_required_major || glibc_version_minor < minimum_required_minor ))
+    glibc_version="${BASH_REMATCH[0]// /}"
+    glibc_version_major="${glibc_version%.*}"
+    glibc_version_minor="${glibc_version#*.}"
+    if ((glibc_version_major < minimum_required_major || glibc_version_minor < minimum_required_minor))
     then
       odie "Vendored tools require system Glibc ${HOMEBREW_LINUX_MINIMUM_GLIBC_VERSION} or later (yours is ${glibc_version})."
     fi
@@ -67,7 +79,8 @@ check_linux_glibc_version() {
 
 # Execute the specified command, and suppress stderr unless HOMEBREW_STDERR is set.
 quiet_stderr() {
-  if [[ -z "${HOMEBREW_STDERR}" ]]; then
+  if [[ -z "${HOMEBREW_STDERR}" ]]
+  then
     command "$@" 2>/dev/null
   else
     command "$@"
@@ -76,7 +89,10 @@ quiet_stderr() {
 
 fetch() {
   local -a curl_args
+  local url
   local sha
+  local first_try=1
+  local vendor_locations
   local temporary_path
 
   curl_args=()
@@ -119,31 +135,34 @@ fetch() {
   then
     [[ -n "${HOMEBREW_QUIET}" ]] || echo "Already downloaded: ${CACHED_LOCATION}" >&2
   else
-    if [[ -f "${temporary_path}" ]]
-    then
-      # HOMEBREW_CURL is set by brew.sh (and isn't mispelt here)
-      # shellcheck disable=SC2153
-      "${HOMEBREW_CURL}" "${curl_args[@]}" -C - "${VENDOR_URL}" -o "${temporary_path}"
-      if [[ $? -eq 33 ]]
+    for url in "${VENDOR_URLs[@]}"
+    do
+      [[ -n "${HOMEBREW_QUIET}" || -n "${first_try}" ]] || ohai "Downloading ${url}" >&2
+      first_try=''
+      if [[ -f "${temporary_path}" ]]
       then
-        [[ -n "${HOMEBREW_QUIET}" ]] || echo "Trying a full download" >&2
-        rm -f "${temporary_path}"
-        "${HOMEBREW_CURL}" "${curl_args[@]}" "${VENDOR_URL}" -o "${temporary_path}"
+        # HOMEBREW_CURL is set by brew.sh (and isn't mispelt here)
+        # shellcheck disable=SC2153
+        "${HOMEBREW_CURL}" "${curl_args[@]}" -C - "${url}" -o "${temporary_path}"
+        if [[ $? -eq 33 ]]
+        then
+          [[ -n "${HOMEBREW_QUIET}" ]] || echo "Trying a full download" >&2
+          rm -f "${temporary_path}"
+          "${HOMEBREW_CURL}" "${curl_args[@]}" "${url}" -o "${temporary_path}"
+        fi
+      else
+        "${HOMEBREW_CURL}" "${curl_args[@]}" "${url}" -o "${temporary_path}"
       fi
-    else
-      "${HOMEBREW_CURL}" "${curl_args[@]}" "${VENDOR_URL}" -o "${temporary_path}"
-    fi
+
+      [[ -f "${temporary_path}" ]] && break
+    done
 
     if [[ ! -f "${temporary_path}" ]]
     then
-      [[ -n "${HOMEBREW_QUIET}" ]] || ohai "Downloading ${VENDOR_URL2}" >&2
-      "${HOMEBREW_CURL}" "${curl_args[@]}" "${VENDOR_URL2}" -o "${temporary_path}"
-    fi
-
-    if [[ ! -f "${temporary_path}" ]]
-    then
+      vendor_locations="$(printf "  - %s\n" "${VENDOR_URLs[@]}")"
       odie <<EOS
-Failed to download ${VENDOR_URL} and ${VENDOR_URL2}!
+Failed to download ${VENDOR_NAME} from the following locations:
+${vendor_locations}
 
 Do not file an issue on GitHub about this; you will need to figure out for
 yourself what issue with your internet connection restricts your access to
@@ -164,13 +183,14 @@ EOS
     sha="$(sha256sum "${CACHED_LOCATION}" | cut -d' ' -f1)"
   elif [[ -x "$(type -P ruby)" ]]
   then
-    sha="$(ruby <<EOSCRIPT
-            require 'digest/sha2'
-            digest = Digest::SHA256.new
-            File.open('${CACHED_LOCATION}', 'rb') { |f| digest.update(f.read) }
-            puts digest.hexdigest
+    sha="$(
+      ruby <<EOSCRIPT
+require 'digest/sha2'
+digest = Digest::SHA256.new
+File.open('${CACHED_LOCATION}', 'rb') { |f| digest.update(f.read) }
+puts digest.hexdigest
 EOSCRIPT
-)"
+    )"
   else
     odie "Cannot verify checksum ('shasum' or 'sha256sum' not found)!"
   fi
@@ -239,15 +259,18 @@ homebrew-vendor-install() {
   for option in "$@"
   do
     case "${option}" in
-      -\?|-h|--help|--usage) brew help vendor-install; exit $? ;;
-      --verbose)             HOMEBREW_VERBOSE=1 ;;
-      --quiet)               HOMEBREW_QUIET=1 ;;
-      --debug)               HOMEBREW_DEBUG=1 ;;
-      --*)                   ;;
+      -\? | -h | --help | --usage)
+        brew help vendor-install
+        exit $?
+        ;;
+      --verbose) HOMEBREW_VERBOSE=1 ;;
+      --quiet) HOMEBREW_QUIET=1 ;;
+      --debug) HOMEBREW_DEBUG=1 ;;
+      --*) ;;
       -*)
-        [[ "${option}" = *v* ]] && HOMEBREW_VERBOSE=1
-        [[ "${option}" = *q* ]] && HOMEBREW_QUIET=1
-        [[ "${option}" = *d* ]] && HOMEBREW_DEBUG=1
+        [[ "${option}" == *v* ]] && HOMEBREW_VERBOSE=1
+        [[ "${option}" == *q* ]] && HOMEBREW_QUIET=1
+        [[ "${option}" == *d* ]] && HOMEBREW_DEBUG=1
         ;;
       *)
         [[ -n "${VENDOR_NAME}" ]] && odie "This command does not take multiple vendor targets!"
@@ -263,17 +286,20 @@ homebrew-vendor-install() {
   filename_var="${VENDOR_NAME}_FILENAME"
   sha_var="${VENDOR_NAME}_SHA"
   url_var="${VENDOR_NAME}_URL"
-  url2_var="${VENDOR_NAME}_URL2"
   VENDOR_FILENAME="${!filename_var}"
   VENDOR_SHA="${!sha_var}"
   VENDOR_URL="${!url_var}"
-  VENDOR_URL2="${!url2_var}"
-  VENDOR_VERSION="$(<"${VENDOR_DIR}/portable-${VENDOR_NAME}-version")"
+  VENDOR_VERSION="$(cat "${VENDOR_DIR}/portable-${VENDOR_NAME}-version")"
 
   if [[ -z "${VENDOR_URL}" || -z "${VENDOR_SHA}" ]]
   then
     odie "No Homebrew ${VENDOR_NAME} ${VENDOR_VERSION} available for ${HOMEBREW_PROCESSOR} processors!"
   fi
+
+  # Expand the name to an array of variables
+  # The array name must be "${VENDOR_NAME}_URLs"! Otherwise substitution errors will occur!
+  # shellcheck disable=SC2086
+  read -r -a VENDOR_URLs <<<"$(eval "echo "\$\{${url_var}s[@]\}"")"
 
   CACHED_LOCATION="${HOMEBREW_CACHE}/${VENDOR_FILENAME}"
 

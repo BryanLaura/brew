@@ -287,7 +287,7 @@ module FormulaCellarChecks
   def check_cpuid_instruction(formula)
     return unless formula.prefix.directory?
     # TODO: add methods to `utils/ast` to allow checking for method use
-    return unless formula.path.read.include? "ENV.runtime_cpu_detection"
+    return unless (formula.prefix/".brew/#{formula.name}.rb").read.include? "ENV.runtime_cpu_detection"
     # Checking for `cpuid` only makes sense on Intel:
     # https://en.wikipedia.org/wiki/CPUID
     return unless Hardware::CPU.intel?
@@ -340,6 +340,8 @@ module FormulaCellarChecks
 
     mismatches_expected = formula.tap.blank? || tap_audit_exception(:mismatched_binary_allowlist, formula.name)
     return if compatible_universal_binaries.empty? && mismatches_expected
+
+    return if universal_binaries_expected && mismatches_expected
 
     s = ""
 

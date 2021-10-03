@@ -1,11 +1,11 @@
-#!/bin/sh
+#!/bin/bash
 # Make sure this shim uses the same Ruby interpreter that is used by Homebrew.
-if [ -z "$HOMEBREW_RUBY_PATH" ]
+if [[ -z "${HOMEBREW_RUBY_PATH}" ]]
 then
   echo "${0##*/}: The build tool has reset ENV; --env=std required." >&2
   exit 1
 fi
-exec "$HOMEBREW_RUBY_PATH" --enable-frozen-string-literal --disable=gems,did_you_mean,rubyopt -x "$0" "$@"
+exec "${HOMEBREW_RUBY_PATH}" --enable-frozen-string-literal --disable=gems,did_you_mean,rubyopt -x "$0" "$@"
 #!/usr/bin/env ruby -W0
 
 require "pathname"
@@ -79,6 +79,8 @@ class Cmd
       "#{ENV["HOMEBREW_PREFIX"]}/opt/llvm/bin/#{Regexp.last_match(1)}"
     when /\w\+\+(-\d+(\.\d)?)?$/
       case ENV["HOMEBREW_CC"]
+      when "swift_clang"
+        "#{ENV["HOMEBREW_PREFIX"]}/opt/swift/libexec/bin/clang++"
       when /clang/
         "clang++"
       when /llvm-gcc/
@@ -91,6 +93,8 @@ class Cmd
       # HOMEBREW_CC regardless of what name under which the tool was invoked.
       if ENV["HOMEBREW_CC"] == "llvm_clang"
         "#{ENV["HOMEBREW_PREFIX"]}/opt/llvm/bin/clang"
+      elsif ENV["HOMEBREW_CC"] == "swift_clang"
+        "#{ENV["HOMEBREW_PREFIX"]}/opt/swift/libexec/bin/clang"
       else
         ENV["HOMEBREW_CC"]
       end

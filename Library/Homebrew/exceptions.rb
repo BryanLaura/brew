@@ -208,6 +208,7 @@ class FormulaUnreadableError < FormulaUnavailableError
   def initialize(name, error)
     super(name)
     @formula_error = error
+    set_backtrace(error.backtrace)
   end
 end
 
@@ -257,6 +258,7 @@ class TapFormulaUnreadableError < TapFormulaUnavailableError
   def initialize(tap, name, error)
     super(tap, name)
     @formula_error = error
+    set_backtrace(error.backtrace)
   end
 end
 
@@ -756,5 +758,15 @@ end
 class ShebangDetectionError < RuntimeError
   def initialize(type, reason)
     super "Cannot detect #{type} shebang: #{reason}."
+  end
+end
+
+# Raised when one or more formulae have cyclic dependencies.
+class CyclicDependencyError < RuntimeError
+  def initialize(strongly_connected_components)
+    super <<~EOS
+      The following packages contain cyclic dependencies:
+        #{strongly_connected_components.select { |packages| packages.count > 1 }.map(&:to_sentence).join("\n  ")}
+    EOS
   end
 end

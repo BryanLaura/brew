@@ -125,6 +125,7 @@ _brew___cache() {
     -*)
       __brewcomp "
       --HEAD
+      --bottle-tag
       --build-from-source
       --cask
       --debug
@@ -521,6 +522,7 @@ _brew_bump_revision() {
       --message
       --quiet
       --verbose
+      --write-only
       "
       return
       ;;
@@ -1351,7 +1353,9 @@ _brew_log() {
   case "${cur}" in
     -*)
       __brewcomp "
+      --cask
       --debug
+      --formula
       --help
       --max-count
       --oneline
@@ -1366,6 +1370,7 @@ _brew_log() {
     *)
   esac
   __brew_complete_formulae
+  __brew_complete_casks
 }
 
 _brew_ls() {
@@ -1581,7 +1586,6 @@ _brew_pr_pull() {
   case "${cur}" in
     -*)
       __brewcomp "
-      --archive-item
       --artifact
       --autosquash
       --branch-okay
@@ -1615,7 +1619,6 @@ _brew_pr_upload() {
   case "${cur}" in
     -*)
       __brewcomp "
-      --archive-item
       --committer
       --debug
       --dry-run

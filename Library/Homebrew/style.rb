@@ -42,7 +42,7 @@ module Homebrew
                          display_cop_names: false,
                          reset_cache: false,
                          debug: false, verbose: false)
-      raise ArgumentError, "Invalid output type: #{output_type.inspect}" unless [:print, :json].include?(output_type)
+      raise ArgumentError, "Invalid output type: #{output_type.inspect}" if [:print, :json].exclude?(output_type)
 
       shell_files, ruby_files =
         Array(files).map(&method(:Pathname))
@@ -65,10 +65,16 @@ module Homebrew
         run_shellcheck(shell_files, output_type)
       end
 
+      shfmt_result = if ruby_files.any? && shell_files.none?
+        true
+      else
+        run_shfmt(shell_files, fix: fix)
+      end
+
       if output_type == :json
         Offenses.new(rubocop_result + shellcheck_result)
       else
-        rubocop_result && shellcheck_result
+        rubocop_result && shellcheck_result && shfmt_result
       end
     end
 
@@ -91,7 +97,7 @@ module Homebrew
         --force-exclusion
       ]
       args << if fix
-        "-A"
+        "--auto-correct-all"
       else
         "--parallel"
       end
@@ -119,12 +125,11 @@ module Homebrew
         args << "--only" << cops_to_include.join(",")
       end
 
-      has_non_formula = files.any? do |file|
-        File.expand_path(file).start_with? HOMEBREW_LIBRARY_PATH
-      end
-
-      if files.any? && !has_non_formula
-        config = if files.first && File.exist?("#{files.first}/spec")
+      files&.map!(&:expand_path)
+      if files.blank? || files == [HOMEBREW_REPOSITORY]
+        files = [HOMEBREW_LIBRARY_PATH]
+      elsif files.none? { |f| f.to_s.start_with? HOMEBREW_LIBRARY_PATH }
+        config = if files.any? { |f| (f/"spec").exist? }
           HOMEBREW_LIBRARY/".rubocop_rspec.yml"
         else
           HOMEBREW_LIBRARY/".rubocop.yml"
@@ -132,11 +137,7 @@ module Homebrew
         args << "--config" << config
       end
 
-      if files.blank?
-        args << HOMEBREW_LIBRARY_PATH
-      else
-        args += files
-      end
+      args += files
 
       cache_env = { "XDG_CACHE_HOME" => "#{HOMEBREW_CACHE}/style" }
 
@@ -164,26 +165,7 @@ module Homebrew
     end
 
     def run_shellcheck(files, output_type)
-      shellcheck   = Formula["shellcheck"].opt_bin/"shellcheck" if Formula["shellcheck"].latest_version_installed?
-      shellcheck ||= which("shellcheck")
-      shellcheck ||= which("shellcheck", ENV["HOMEBREW_PATH"])
-      shellcheck ||= begin
-        ohai "Installing `shellcheck` for shell style checks..."
-        safe_system HOMEBREW_BREW_FILE, "install", "shellcheck"
-        Formula["shellcheck"].opt_bin/"shellcheck"
-      end
-
-      if files.empty?
-        files = [
-          HOMEBREW_BREW_FILE,
-          HOMEBREW_REPOSITORY/"completions/bash/brew",
-          *HOMEBREW_LIBRARY.glob("Homebrew/*.sh"),
-          *HOMEBREW_LIBRARY.glob("Homebrew/shims/**/*").map(&:realpath).uniq
-                           .reject { |path| path.directory? || path.basename.to_s == "cc" },
-          *HOMEBREW_LIBRARY.glob("Homebrew/{dev-,}cmd/*.sh"),
-          *HOMEBREW_LIBRARY.glob("Homebrew/{cask/,}utils/*.sh"),
-        ]
-      end
+      files = shell_scripts if files.blank?
 
       args = ["--shell=bash", "--enable=all", "--external-sources", "--source-path=#{HOMEBREW_LIBRARY}", "--", *files]
 
@@ -231,6 +213,27 @@ module Homebrew
       end
     end
 
+    def run_shfmt(files, fix: false)
+      files = shell_scripts if files.blank?
+      # Do not format completions and Dockerfile
+      files.delete(HOMEBREW_REPOSITORY/"completions/bash/brew")
+      files.delete(HOMEBREW_REPOSITORY/"Dockerfile")
+
+      # shfmt options:
+      #   -i 2     : indent by 2 spaces
+      #   -ci      : indent switch cases
+      #   -ln bash : language variant to parse ("bash")
+      #   -w       : write result to file instead of stdout (inplace fixing)
+      # "--" is needed for `utils/shfmt.sh`
+      args = ["-i", "2", "-ci", "-ln", "bash", "--", *files]
+
+      # Do inplace fixing
+      args.unshift("-w") if fix # need to add before "--"
+
+      system shfmt, *args
+      $CHILD_STATUS.success?
+    end
+
     def json_result!(result)
       # An exit status of 1 just means violations were found; other numbers mean
       # execution errors.
@@ -238,6 +241,49 @@ module Homebrew
       result.assert_success! if !(0..1).cover?(result.status.exitstatus) || result.stdout.length < 2
 
       JSON.parse(result.stdout)
+    end
+
+    def shell_scripts
+      [
+        HOMEBREW_BREW_FILE,
+        HOMEBREW_REPOSITORY/"completions/bash/brew",
+        HOMEBREW_REPOSITORY/"Dockerfile",
+        *HOMEBREW_LIBRARY.glob("Homebrew/*.sh"),
+        *HOMEBREW_LIBRARY.glob("Homebrew/shims/**/*").map(&:realpath).uniq
+                         .reject { |path| path.directory? || path.basename.to_s == "cc" },
+        *HOMEBREW_LIBRARY.glob("Homebrew/{dev-,}cmd/*.sh"),
+        *HOMEBREW_LIBRARY.glob("Homebrew/{cask/,}utils/*.sh"),
+      ]
+    end
+
+    def shellcheck
+      # Always use the latest brewed shellcheck
+      unless Formula["shellcheck"].latest_version_installed?
+        if Formula["shellcheck"].any_version_installed?
+          ohai "Upgrading `shellcheck` for shell style checks..."
+          safe_system HOMEBREW_BREW_FILE, "upgrade", "shellcheck"
+        else
+          ohai "Installing `shellcheck` for shell style checks..."
+          safe_system HOMEBREW_BREW_FILE, "install", "shellcheck"
+        end
+      end
+
+      Formula["shellcheck"].opt_bin/"shellcheck"
+    end
+
+    def shfmt
+      # Always use the latest brewed shfmt
+      unless Formula["shfmt"].latest_version_installed?
+        if Formula["shfmt"].any_version_installed?
+          ohai "Upgrading `shfmt` to format shell scripts..."
+          safe_system HOMEBREW_BREW_FILE, "upgrade", "shfmt"
+        else
+          ohai "Installing `shfmt` to format shell scripts..."
+          safe_system HOMEBREW_BREW_FILE, "install", "shfmt"
+        end
+      end
+
+      HOMEBREW_LIBRARY/"Homebrew/utils/shfmt.sh"
     end
 
     # Collection of style offenses.

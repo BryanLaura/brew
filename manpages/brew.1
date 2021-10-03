@@ -1,7 +1,7 @@
 .\" generated with Ronn/v0.7.3
 .\" http://github.com/rtomayko/ronn/tree/0.7.3
 .
-.TH "BREW" "1" "August 2021" "Homebrew" "brew"
+.TH "BREW" "1" "September 2021" "Homebrew" "brew"
 .
 .SH "NAME"
 \fBbrew\fR \- The Missing Package Manager for macOS (or Linux)
@@ -351,7 +351,7 @@ Which type of analytics data to retrieve\. The value for \fIcategory\fR must be 
 .
 .TP
 \fB\-\-github\fR
-Open the GitHub source page for \fIformula\fR in a browser\. To view formula history locally: \fBbrew log \-p\fR \fIformula\fR
+Open the GitHub source page for \fIformula\fR and \fIcask\fR in a browser\. To view the history locally: \fBbrew log \-p\fR \fIformula\fR or \fIcask\fR
 .
 .TP
 \fB\-\-json\fR
@@ -449,7 +449,7 @@ Optimise bottles for the specified architecture rather than the oldest architect
 .
 .TP
 \fB\-\-display\-times\fR
-Print install times for each formula at the end of the run\.
+Print install times for each package at the end of the run\.
 .
 .TP
 \fB\-i\fR, \fB\-\-interactive\fR
@@ -555,8 +555,8 @@ Reverse the order of the formulae and/or casks sort to list the oldest entries f
 \fB\-t\fR
 Sort formulae and/or casks by time modified, listing most recently modified first\. Has no effect when a formula or cask name is passed as an argument\.
 .
-.SS "\fBlog\fR [\fIoptions\fR] [\fIformula\fR]"
-Show the \fBgit log\fR for \fIformula\fR, or show the log for the Homebrew repository if no formula is provided\.
+.SS "\fBlog\fR [\fIoptions\fR] [\fIformula\fR|\fIcask\fR]"
+Show the \fBgit log\fR for \fIformula\fR or \fIcask\fR, or show the log for the Homebrew repository if no formula or cask is provided\.
 .
 .TP
 \fB\-p\fR, \fB\-\-patch\fR
@@ -577,6 +577,14 @@ Print only one commit\.
 .TP
 \fB\-n\fR, \fB\-\-max\-count\fR
 Print only a specified number of commits\.
+.
+.TP
+\fB\-\-formula\fR
+Treat all named arguments as formulae\.
+.
+.TP
+\fB\-\-cask\fR
+Treat all named arguments as casks\.
 .
 .SS "\fBmigrate\fR [\fI\-\-force\fR] [\fI\-\-dry\-run\fR] \fIinstalled_formula\fR [\.\.\.]"
 Migrate renamed packages to new names, where \fIformula\fR are old names of packages\.
@@ -796,7 +804,7 @@ Search for \fItext\fR in the given database\.
 Print export statements\. When run in a shell, this installation of Homebrew will be added to your \fBPATH\fR, \fBMANPATH\fR, and \fBINFOPATH\fR\.
 .
 .P
-The variables \fBHOMEBREW_PREFIX\fR, \fBHOMEBREW_CELLAR\fR and \fBHOMEBREW_REPOSITORY\fR are also exported to avoid querying them multiple times\. The variable \fBHOMEBREW_SHELLENV_PREFIX\fR will be exported to avoid adding duplicate entries to the environment variables\. Consider adding evaluation of this command\'s output to your dotfiles (e\.g\. \fB~/\.profile\fR, \fB~/\.bash_profile\fR, or \fB~/\.zprofile\fR) with: \fBeval $(brew shellenv)\fR
+The variables \fBHOMEBREW_PREFIX\fR, \fBHOMEBREW_CELLAR\fR and \fBHOMEBREW_REPOSITORY\fR are also exported to avoid querying them multiple times\. The variable \fBHOMEBREW_SHELLENV_PREFIX\fR will be exported to avoid adding duplicate entries to the environment variables\. Consider adding evaluation of this command\'s output to your dotfiles (e\.g\. \fB~/\.profile\fR, \fB~/\.bash_profile\fR, or \fB~/\.zprofile\fR) with: \fBeval "$(brew shellenv)"\fR
 .
 .SS "\fBtap\fR [\fIoptions\fR] [\fIuser\fR\fB/\fR\fIrepo\fR] [\fIURL\fR]"
 Tap a formula repository\.
@@ -957,7 +965,7 @@ Retain the temporary files created during installation\.
 .
 .TP
 \fB\-\-display\-times\fR
-Print install times for each formula at the end of the run\.
+Print install times for each package at the end of the run\.
 .
 .TP
 \fB\-\-cask\fR
@@ -1039,6 +1047,10 @@ Show the cache file used when building from source\.
 .TP
 \fB\-\-force\-bottle\fR
 Show the cache file used when pouring a bottle\.
+.
+.TP
+\fB\-\-bottle\-tag\fR
+Show the cache file used when pouring a bottle for the given tag\.
 .
 .TP
 \fB\-\-HEAD\fR
@@ -1412,12 +1424,16 @@ Specify the new commit \fIrevision\fR corresponding to the specified git \fItag\
 \fB\-f\fR, \fB\-\-force\fR
 Ignore duplicate open PRs\. Remove all mirrors if \fB\-\-mirror\fR was not specified\.
 .
-.SS "\fBbump\-revision\fR [\fI\-\-dry\-run\fR] [\fI\-\-message\fR\fB=\fR] \fIformula\fR [\.\.\.]"
+.SS "\fBbump\-revision\fR [\fIoptions\fR] \fIformula\fR [\.\.\.]"
 Create a commit to increment the revision of \fIformula\fR\. If no revision is present, "revision 1" will be added\.
 .
 .TP
 \fB\-n\fR, \fB\-\-dry\-run\fR
 Print what would be done rather than doing it\.
+.
+.TP
+\fB\-\-write\-only\fR
+Make the expected file modifications without taking any Git actions\.
 .
 .TP
 \fB\-\-message\fR
@@ -1682,7 +1698,7 @@ Pull requests must have this label\.
 .
 .TP
 \fB\-\-without\-labels\fR
-Pull requests must not have these labels (default: \fBdo not merge\fR, \fBnew formula\fR, \fBautomerge\-skip\fR, \fBlinux\-only\fR, \fBlinux to homebrew\-core\fR)\.
+Pull requests must not have these labels (default: \fBdo not merge\fR, \fBnew formula\fR, \fBautomerge\-skip\fR, \fBlinux to homebrew\-core\fR)\.
 .
 .TP
 \fB\-\-without\-approval\fR
@@ -1783,10 +1799,6 @@ Message to include when autosquashing revision bumps, deletions, and rebuilds\.
 Download artifacts with the specified name (default: \fBbottles\fR)\.
 .
 .TP
-\fB\-\-archive\-item\fR
-Upload to the specified Internet Archive item (default: \fBhomebrew\fR)\.
-.
-.TP
 \fB\-\-tap\fR
 Target tap repository (default: \fBhomebrew/core\fR)\.
 .
@@ -1828,10 +1840,6 @@ Warn instead of raising an error if the bottle upload fails\. Useful for repairi
 .TP
 \fB\-\-committer\fR
 Specify a committer name and email in \fBgit\fR\'s standard author format\.
-.
-.TP
-\fB\-\-archive\-item\fR
-Upload to the specified Internet Archive item (default: \fBhomebrew\fR)\.
 .
 .TP
 \fB\-\-github\-org\fR
@@ -2656,7 +2664,7 @@ If set, use \fBbat\fR for the \fBbrew cat\fR command\.
 Use this as the \fBbat\fR configuration file\.
 .
 .IP
-\fIDefault:\fR \fB$HOME/\.bat/config\fR\.
+\fIDefault:\fR \fB$HOME/\.config/bat/config\fR\.
 .
 .TP
 \fBHOMEBREW_BOOTSNAP\fR
@@ -2888,12 +2896,6 @@ Print this text before the installation summary of each successful build\.
 .
 .IP
 \fIDefault:\fR The "Beer Mug" emoji\.
-.
-.TP
-\fBHOMEBREW_INTERNET_ARCHIVE_KEY\fR
-.
-.br
-Use this API key when accessing the Internet Archive S3 API, where bottles are stored\. The format is access:secret\. See https://archive\.org/account/s3\.php
 .
 .TP
 \fBHOMEBREW_LIVECHECK_WATCHLIST\fR
@@ -3170,7 +3172,7 @@ Homebrew\'s Technical Steering Committee is Bo Anderson, FX Coudert, Michka Popo
 Homebrew\'s Linux maintainers are Daniel Nachun, Dawid Dziurla, Issy Long, Jonathan Chang, Michka Popoff and Shaun Jackman\.
 .
 .P
-Homebrew\'s other current maintainers are Alexander Bayandin, Bevan Kay, Branch Vincent, Caleb Xu, Carlo Cabrera, Claudia Pellegrino, Connor Mann, Dustin Rodrigues, Eric Knibbe, Maxim Belkin, Miccal Matthews, Michael Cho, Nanda H Krishna, Randall, Sam Ford, Steve Peters, Thierry Moisan, Tom Schoonjans, Vitor Galvao and rui\.
+Homebrew\'s other current maintainers are Alexander Bayandin, Bevan Kay, Branch Vincent, Caleb Xu, Carlo Cabrera, Connor Mann, Dustin Rodrigues, Eric Knibbe, Maxim Belkin, Miccal Matthews, Michael Cho, Nanda H Krishna, Randall, Sam Ford, Steve Peters, Thierry Moisan, Tom Schoonjans, Vitor Galvao and rui\.
 .
 .P
 Former maintainers with significant contributions include Jan Viljanen, JCount, commitay, Dominyk Tiller, Tim Smith, Baptiste Fontaine, Xu Cheng, Martin Afanasjew, Brett Koonce, Charlie Sharpsteen, Jack Nagel, Adam Vandenberg, Andrew Janke, Alex Dunn, neutric, Tomasz Pajor, Uladzislau Shablinski, Alyssa Ross, ilovezfs, Chongyu Zhu and Homebrew\'s creator: Max Howell\.

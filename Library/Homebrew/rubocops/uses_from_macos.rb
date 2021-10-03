@@ -81,12 +81,9 @@ module RuboCop
           groff
           gzip
           openssl
-          openssl@1.1
-          openssl@3
           perl
           php
           python
-          python@3
           rsync
           vim
           xz

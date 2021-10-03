@@ -201,6 +201,7 @@ end
 
 __fish_brew_complete_cmd '--cache' 'Display Homebrew\'s download cache'
 __fish_brew_complete_arg '--cache' -l HEAD -d 'Show the cache file used when building from HEAD'
+__fish_brew_complete_arg '--cache' -l bottle-tag -d 'Show the cache file used when pouring a bottle for the given tag'
 __fish_brew_complete_arg '--cache' -l build-from-source -d 'Show the cache file used when building from source'
 __fish_brew_complete_arg '--cache' -l cask -d 'Only show cache files for casks'
 __fish_brew_complete_arg '--cache' -l debug -d 'Display any debugging information'
@@ -300,7 +301,7 @@ __fish_brew_complete_arg 'abv' -l category -d 'Which type of analytics data to r
 __fish_brew_complete_arg 'abv' -l days -d 'How many days of analytics data to retrieve. The value for days must be `30`, `90` or `365`. The default is `30`'
 __fish_brew_complete_arg 'abv' -l debug -d 'Display any debugging information'
 __fish_brew_complete_arg 'abv' -l formula -d 'Treat all named arguments as formulae'
-__fish_brew_complete_arg 'abv' -l github -d 'Open the GitHub source page for formula in a browser. To view formula history locally: `brew log -p` formula'
+__fish_brew_complete_arg 'abv' -l github -d 'Open the GitHub source page for formula and cask in a browser. To view the history locally: `brew log -p` formula or cask'
 __fish_brew_complete_arg 'abv' -l help -d 'Show this message'
 __fish_brew_complete_arg 'abv' -l installed -d 'Print JSON of formulae that are currently installed'
 __fish_brew_complete_arg 'abv' -l json -d 'Print a JSON representation. Currently the default value for version is `v1` for formula. For formula and cask use `v2`. See the docs for examples of using the JSON output: https://docs.brew.sh/Querying-Brew'
@@ -446,6 +447,7 @@ __fish_brew_complete_arg 'bump-revision' -l help -d 'Show this message'
 __fish_brew_complete_arg 'bump-revision' -l message -d 'Append message to the default commit message'
 __fish_brew_complete_arg 'bump-revision' -l quiet -d 'Make some output more quiet'
 __fish_brew_complete_arg 'bump-revision' -l verbose -d 'Make some output more verbose'
+__fish_brew_complete_arg 'bump-revision' -l write-only -d 'Make the expected file modifications without taking any Git actions'
 __fish_brew_complete_arg 'bump-revision' -a '(__fish_brew_suggest_formulae_all)'
 
 
@@ -735,7 +737,7 @@ __fish_brew_complete_arg 'info' -l category -d 'Which type of analytics data to 
 __fish_brew_complete_arg 'info' -l days -d 'How many days of analytics data to retrieve. The value for days must be `30`, `90` or `365`. The default is `30`'
 __fish_brew_complete_arg 'info' -l debug -d 'Display any debugging information'
 __fish_brew_complete_arg 'info' -l formula -d 'Treat all named arguments as formulae'
-__fish_brew_complete_arg 'info' -l github -d 'Open the GitHub source page for formula in a browser. To view formula history locally: `brew log -p` formula'
+__fish_brew_complete_arg 'info' -l github -d 'Open the GitHub source page for formula and cask in a browser. To view the history locally: `brew log -p` formula or cask'
 __fish_brew_complete_arg 'info' -l help -d 'Show this message'
 __fish_brew_complete_arg 'info' -l installed -d 'Print JSON of formulae that are currently installed'
 __fish_brew_complete_arg 'info' -l json -d 'Print a JSON representation. Currently the default value for version is `v1` for formula. For formula and cask use `v2`. See the docs for examples of using the JSON output: https://docs.brew.sh/Querying-Brew'
@@ -758,7 +760,7 @@ __fish_brew_complete_arg 'instal' -l cc -d 'Attempt to compile using the specifi
 __fish_brew_complete_arg 'instal' -l colorpickerdir -d 'Target location for Color Pickers (default: `~/Library/ColorPickers`)'
 __fish_brew_complete_arg 'instal' -l debug -d 'If brewing fails, open an interactive debugging session with access to IRB or a shell inside the temporary build directory'
 __fish_brew_complete_arg 'instal' -l dictionarydir -d 'Target location for Dictionaries (default: `~/Library/Dictionaries`)'
-__fish_brew_complete_arg 'instal' -l display-times -d 'Print install times for each formula at the end of the run'
+__fish_brew_complete_arg 'instal' -l display-times -d 'Print install times for each package at the end of the run'
 __fish_brew_complete_arg 'instal' -l env -d 'Disabled other than for internal Homebrew use'
 __fish_brew_complete_arg 'instal' -l fetch-HEAD -d 'Fetch the upstream repository to detect if the HEAD installation of the formula is outdated. Otherwise, the repository\'s HEAD will only be checked for updates when a new stable or development version has been released'
 __fish_brew_complete_arg 'instal' -l fontdir -d 'Target location for Fonts (default: `~/Library/Fonts`)'
@@ -806,7 +808,7 @@ __fish_brew_complete_arg 'install' -l cc -d 'Attempt to compile using the specif
 __fish_brew_complete_arg 'install' -l colorpickerdir -d 'Target location for Color Pickers (default: `~/Library/ColorPickers`)'
 __fish_brew_complete_arg 'install' -l debug -d 'If brewing fails, open an interactive debugging session with access to IRB or a shell inside the temporary build directory'
 __fish_brew_complete_arg 'install' -l dictionarydir -d 'Target location for Dictionaries (default: `~/Library/Dictionaries`)'
-__fish_brew_complete_arg 'install' -l display-times -d 'Print install times for each formula at the end of the run'
+__fish_brew_complete_arg 'install' -l display-times -d 'Print install times for each package at the end of the run'
 __fish_brew_complete_arg 'install' -l env -d 'Disabled other than for internal Homebrew use'
 __fish_brew_complete_arg 'install' -l fetch-HEAD -d 'Fetch the upstream repository to detect if the HEAD installation of the formula is outdated. Otherwise, the repository\'s HEAD will only be checked for updates when a new stable or development version has been released'
 __fish_brew_complete_arg 'install' -l fontdir -d 'Target location for Fonts (default: `~/Library/Fonts`)'
@@ -955,8 +957,10 @@ __fish_brew_complete_arg 'ln' -l verbose -d 'Make some output more verbose'
 __fish_brew_complete_arg 'ln' -a '(__fish_brew_suggest_formulae_installed)'
 
 
-__fish_brew_complete_cmd 'log' 'Show the `git log` for formula, or show the log for the Homebrew repository if no formula is provided'
+__fish_brew_complete_cmd 'log' 'Show the `git log` for formula or cask, or show the log for the Homebrew repository if no formula or cask is provided'
+__fish_brew_complete_arg 'log' -l cask -d 'Treat all named arguments as casks'
 __fish_brew_complete_arg 'log' -l debug -d 'Display any debugging information'
+__fish_brew_complete_arg 'log' -l formula -d 'Treat all named arguments as formulae'
 __fish_brew_complete_arg 'log' -l help -d 'Show this message'
 __fish_brew_complete_arg 'log' -l max-count -d 'Print only a specified number of commits'
 __fish_brew_complete_arg 'log' -l oneline -d 'Print only one line per commit'
@@ -965,7 +969,8 @@ __fish_brew_complete_arg 'log' -l quiet -d 'Make some output more quiet'
 __fish_brew_complete_arg 'log' -l stat -d 'Also print diffstat from commit'
 __fish_brew_complete_arg 'log' -l verbose -d 'Make some output more verbose'
 __fish_brew_complete_arg 'log' -l 1 -d 'Print only one commit'
-__fish_brew_complete_arg 'log' -a '(__fish_brew_suggest_formulae_all)'
+__fish_brew_complete_arg 'log; and not __fish_seen_argument -l cask -l casks' -a '(__fish_brew_suggest_formulae_all)'
+__fish_brew_complete_arg 'log; and not __fish_seen_argument -l formula -l formulae' -a '(__fish_brew_suggest_casks_all)'
 
 
 __fish_brew_complete_cmd 'ls' 'List all installed formulae and casks'
@@ -1035,7 +1040,7 @@ __fish_brew_complete_arg 'outdated' -l greedy -d 'Print outdated casks with `aut
 __fish_brew_complete_arg 'outdated' -l greedy-auto-updates -d 'Print outdated casks including those with `auto_updates true`'
 __fish_brew_complete_arg 'outdated' -l greedy-latest -d 'Print outdated casks including those with `version :latest`'
 __fish_brew_complete_arg 'outdated' -l help -d 'Show this message'
-__fish_brew_complete_arg 'outdated' -l json -d 'Print output in JSON format. There are two versions: `v1` and `v2`. `v1` is deprecated and is currently the default if no version is specified. `v2` prints outdated formulae and casks. '
+__fish_brew_complete_arg 'outdated' -l json -d 'Print output in JSON format. There are two versions: `v1` and `v2`. `v1` is deprecated and is currently the default if no version is specified. `v2` prints outdated formulae and casks'
 __fish_brew_complete_arg 'outdated' -l quiet -d 'List only the names of outdated kegs (takes precedence over `--verbose`)'
 __fish_brew_complete_arg 'outdated' -l verbose -d 'Include detailed version information'
 __fish_brew_complete_arg 'outdated; and not __fish_seen_argument -l cask -l casks' -a '(__fish_brew_suggest_formulae_all)'
@@ -1070,7 +1075,7 @@ __fish_brew_complete_arg 'pr-automerge' -l tap -d 'Target tap repository (defaul
 __fish_brew_complete_arg 'pr-automerge' -l verbose -d 'Make some output more verbose'
 __fish_brew_complete_arg 'pr-automerge' -l with-label -d 'Pull requests must have this label'
 __fish_brew_complete_arg 'pr-automerge' -l without-approval -d 'Pull requests do not require approval to be merged'
-__fish_brew_complete_arg 'pr-automerge' -l without-labels -d 'Pull requests must not have these labels (default: `do not merge`, `new formula`, `automerge-skip`, `linux-only`, `linux to homebrew-core`)'
+__fish_brew_complete_arg 'pr-automerge' -l without-labels -d 'Pull requests must not have these labels (default: `do not merge`, `new formula`, `automerge-skip`, `linux to homebrew-core`)'
 
 
 __fish_brew_complete_cmd 'pr-publish' 'Publish bottles for a pull request with GitHub Actions'
@@ -1087,7 +1092,6 @@ __fish_brew_complete_arg 'pr-publish' -l workflow -d 'Target workflow filename (
 
 
 __fish_brew_complete_cmd 'pr-pull' 'Download and publish bottles, and apply the bottle commit from a pull request with artifacts generated by GitHub Actions'
-__fish_brew_complete_arg 'pr-pull' -l archive-item -d 'Upload to the specified Internet Archive item (default: `homebrew`)'
 __fish_brew_complete_arg 'pr-pull' -l artifact -d 'Download artifacts with the specified name (default: `bottles`)'
 __fish_brew_complete_arg 'pr-pull' -l autosquash -d 'Automatically reformat and reword commits in the pull request to our preferred format'
 __fish_brew_complete_arg 'pr-pull' -l branch-okay -d 'Do not warn if pulling to a branch besides the repository default (useful for testing)'
@@ -1112,7 +1116,6 @@ __fish_brew_complete_arg 'pr-pull' -l workflows -d 'Retrieve artifacts from the 
 
 
 __fish_brew_complete_cmd 'pr-upload' 'Apply the bottle commit and publish bottles to a host'
-__fish_brew_complete_arg 'pr-upload' -l archive-item -d 'Upload to the specified Internet Archive item (default: `homebrew`)'
 __fish_brew_complete_arg 'pr-upload' -l committer -d 'Specify a committer name and email in `git`\'s standard author format'
 __fish_brew_complete_arg 'pr-upload' -l debug -d 'Display any debugging information'
 __fish_brew_complete_arg 'pr-upload' -l dry-run -d 'Print what would be done rather than doing it'
@@ -1526,7 +1529,7 @@ __fish_brew_complete_arg 'upgrade' -l cask -d 'Treat all named arguments as cask
 __fish_brew_complete_arg 'upgrade' -l colorpickerdir -d 'Target location for Color Pickers (default: `~/Library/ColorPickers`)'
 __fish_brew_complete_arg 'upgrade' -l debug -d 'If brewing fails, open an interactive debugging session with access to IRB or a shell inside the temporary build directory'
 __fish_brew_complete_arg 'upgrade' -l dictionarydir -d 'Target location for Dictionaries (default: `~/Library/Dictionaries`)'
-__fish_brew_complete_arg 'upgrade' -l display-times -d 'Print install times for each formula at the end of the run'
+__fish_brew_complete_arg 'upgrade' -l display-times -d 'Print install times for each package at the end of the run'
 __fish_brew_complete_arg 'upgrade' -l dry-run -d 'Show what would be upgraded, but do not actually upgrade anything'
 __fish_brew_complete_arg 'upgrade' -l fetch-HEAD -d 'Fetch the upstream repository to detect if the HEAD installation of the formula is outdated. Otherwise, the repository\'s HEAD will only be checked for updates when a new stable or development version has been released'
 __fish_brew_complete_arg 'upgrade' -l fontdir -d 'Target location for Fonts (default: `~/Library/Fonts`)'

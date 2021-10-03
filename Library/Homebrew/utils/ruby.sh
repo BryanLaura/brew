@@ -3,7 +3,7 @@ export HOMEBREW_REQUIRED_RUBY_VERSION=2.6.3
 # HOMEBREW_LIBRARY is from the user environment
 # shellcheck disable=SC2154
 test_ruby() {
-  if [[ ! -x $1 ]]
+  if [[ ! -x "$1" ]]
   then
     return 1
   fi
@@ -15,22 +15,28 @@ test_ruby() {
 
 # HOMEBREW_MACOS is set by brew.sh
 # HOMEBREW_PATH is set by global.rb
-# SC2230 falsely flags `which -a`
-# shellcheck disable=SC2154,SC2230
+# shellcheck disable=SC2154
 find_ruby() {
   if [[ -n "${HOMEBREW_MACOS}" ]]
   then
     echo "/System/Library/Frameworks/Ruby.framework/Versions/Current/usr/bin/ruby"
   else
-    IFS=$'\n' # Do word splitting on new lines only
-    for ruby_exec in $(which -a ruby 2>/dev/null) $(PATH=${HOMEBREW_PATH} which -a ruby 2>/dev/null)
+    local ruby_exec
+    while read -r ruby_exec
     do
-      if test_ruby "${ruby_exec}"; then
+      if test_ruby "${ruby_exec}"
+      then
         echo "${ruby_exec}"
         break
       fi
-    done
-    IFS=$' \t\n' # Restore IFS to its default value
+    done < <(
+      # function which() is set by brew.sh
+      # it's aliased to `type -P`
+      # shellcheck disable=SC2230
+      which -a ruby
+      # shellcheck disable=SC2230
+      PATH="${HOMEBREW_PATH}" which -a ruby
+    )
   fi
 }
 
@@ -67,7 +73,7 @@ setup-ruby-path() {
   local upgrade_fail
   local install_fail
 
-  if [[ -n ${HOMEBREW_MACOS} ]]
+  if [[ -n "${HOMEBREW_MACOS}" ]]
   then
     upgrade_fail="Failed to upgrade Homebrew Portable Ruby!"
     install_fail="Failed to install Homebrew Portable Ruby (and your system version is too old)!"
@@ -86,8 +92,8 @@ If there's no Homebrew Portable Ruby available for your processor:
   vendor_ruby_root="${vendor_dir}/portable-ruby/current"
   vendor_ruby_path="${vendor_ruby_root}/bin/ruby"
   vendor_ruby_terminfo="${vendor_ruby_root}/share/terminfo"
-  vendor_ruby_latest_version=$(<"${vendor_dir}/portable-ruby-version")
-  vendor_ruby_current_version=$(readlink "${vendor_ruby_root}")
+  vendor_ruby_latest_version="$(cat "${vendor_dir}/portable-ruby-version")"
+  vendor_ruby_current_version="$(readlink "${vendor_ruby_root}")"
 
   unset HOMEBREW_RUBY_PATH
 
@@ -100,12 +106,12 @@ If there's no Homebrew Portable Ruby available for your processor:
   then
     HOMEBREW_RUBY_PATH="${vendor_ruby_path}"
     TERMINFO_DIRS="${vendor_ruby_terminfo}"
-    if [[ ${vendor_ruby_current_version} != "${vendor_ruby_latest_version}" ]]
+    if [[ "${vendor_ruby_current_version}" != "${vendor_ruby_latest_version}" ]]
     then
       brew vendor-install ruby || odie "${upgrade_fail}"
     fi
   else
-    HOMEBREW_RUBY_PATH=$(find_ruby)
+    HOMEBREW_RUBY_PATH="$(find_ruby)"
     if need_vendored_ruby
     then
       brew vendor-install ruby || odie "${install_fail}"

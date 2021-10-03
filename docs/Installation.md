@@ -16,7 +16,7 @@ it does it too. You have to confirm everything it will do before it starts.
 * Command Line Tools (CLT) for Xcode: `xcode-select --install`,
   [developer.apple.com/downloads](https://developer.apple.com/downloads) or
   [Xcode](https://itunes.apple.com/us/app/xcode/id497799835) <sup>[3](#3)</sup>
-* A Bourne-compatible shell for installation (e.g. `bash` or `zsh`) <sup>[4](#4)</sup>
+* The Bourne-again shell for installation (i.e. `bash`) <sup>[4](#4)</sup>
 
 ## Git Remote Mirroring
 
@@ -53,6 +53,20 @@ here. *Pick another prefix at your peril!*
 mkdir homebrew && curl -L https://github.com/Homebrew/brew/tarball/master | tar xz --strip 1 -C homebrew
 ```
 
+or
+
+```sh
+git clone https://github.com/Homebrew/brew homebrew
+```
+
+then
+
+```sh
+eval "$(homebrew/bin/brew shellenv)"
+brew update --force --quiet
+chmod -R go-w "$(brew --prefix)/share/zsh"
+```
+
 ### Multiple installations
 
 Create a Homebrew installation wherever you extract the tarball. Whichever `brew` command is called is where the packages will be installed. You can use this as you see fit, e.g. a system set of libs in the default prefix and tweaked formulae for development in `~/homebrew`.
@@ -75,5 +89,5 @@ Apple Developer account on older versions of Mac OS X. Sign up for free
 [here](https://developer.apple.com/register/index.action).
 
 <a name="4"><sup>4</sup></a> The one-liner installation method found on
-[brew.sh](https://brew.sh) requires a Bourne-compatible shell (e.g. bash or
-zsh). Notably, fish, tcsh and csh will not work.
+[brew.sh](https://brew.sh) requires the Bourne-again shell, i.e. bash.
+Notably, zsh, fish, tcsh and csh will not work.

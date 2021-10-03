@@ -45,8 +45,8 @@ module Homebrew
                           "`cask-install` or `os-version` may be specified if <formula> is not. "\
                           "The default is `install`."
       switch "--github",
-             description: "Open the GitHub source page for <formula> in a browser. "\
-                          "To view formula history locally: `brew log -p` <formula>"
+             description: "Open the GitHub source page for <formula> and <cask> in a browser. "\
+                          "To view the history locally: `brew log -p` <formula> or <cask>"
       flag   "--json",
              description: "Print a JSON representation. Currently the default value for <version> is `v1` for "\
                           "<formula>. For <formula> and <cask> use `v2`. See the docs for examples of using the "\
@@ -153,7 +153,14 @@ module Homebrew
         info_formula(obj, args: args)
       when Cask::Cask
         info_cask(obj, args: args)
+      when FormulaUnreadableError, FormulaClassUnavailableError,
+         TapFormulaUnreadableError, TapFormulaClassUnavailableError,
+         Cask::CaskUnreadableError
+        # We found the formula/cask, but failed to read it
+        $stderr.puts obj.backtrace if Homebrew::EnvConfig.developer?
+        ofail obj.message
       when FormulaOrCaskUnavailableError
+        # The formula/cask could not be found
         ofail obj.message
         # No formula with this name, try a missing formula lookup
         if (reason = MissingFormula.reason(obj.name, show_info: true))

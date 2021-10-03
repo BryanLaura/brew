@@ -70,6 +70,7 @@ module Homebrew
 
       def fatal_setup_build_environment_checks
         %w[
+          check_xcode_minimum_version
           check_clt_minimum_version
           check_if_supported_sdk_available
         ].freeze
@@ -106,6 +107,7 @@ module Homebrew
 
       def check_for_unsupported_macos
         return if Homebrew::EnvConfig.developer?
+        return if ENV["HOMEBREW_INTEGRATION_TEST"]
 
         who = +"We"
         what = if OS::Mac.version.prerelease?

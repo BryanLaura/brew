@@ -31,7 +31,7 @@ module Homebrew
       flag   "--json",
              description: "Print output in JSON format. There are two versions: `v1` and `v2`. " \
                           "`v1` is deprecated and is currently the default if no version is specified. " \
-                          "`v2` prints outdated formulae and casks. "
+                          "`v2` prints outdated formulae and casks."
       switch "--fetch-HEAD",
              description: "Fetch the upstream repository to detect if the HEAD installation of the "\
                           "formula is outdated. Otherwise, the repository's HEAD will only be checked for "\
@@ -98,7 +98,8 @@ module Homebrew
         if verbose?
           outdated_kegs = f.outdated_kegs(fetch_head: args.fetch_HEAD?)
 
-          current_version = if ENV["HOMEBREW_INSTALL_FROM_API"].present? && (f.core_formula? || f.tap.blank?)
+          current_version = if !f.head? && ENV["HOMEBREW_INSTALL_FROM_API"].present? &&
+                               (f.core_formula? || f.tap.blank?)
             Homebrew::API::Versions.latest_formula_version(f.name)&.to_s || f.pkg_version.to_s
           elsif f.alias_changed? && !f.latest_formula.latest_version_installed?
             latest = f.latest_formula
