@@ -18,12 +18,20 @@
 # shellcheck disable=SC2154
 source "${HOMEBREW_LIBRARY}/Homebrew/utils/lock.sh"
 
-# Replaces the function in Library/Homebrew/brew.sh to cache the Git executable to
-# provide speedup when using Git repeatedly (as update.sh does).
+# Replaces the function in Library/Homebrew/brew.sh to cache the Curl/Git executable to
+# provide speedup when using Curl/Git repeatedly (as update.sh does).
+curl() {
+  if [[ -z "${CURL_EXECUTABLE}" ]]
+  then
+    CURL_EXECUTABLE="$("${HOMEBREW_LIBRARY}/Homebrew/shims/shared/curl" --homebrew=print-path)"
+  fi
+  "${CURL_EXECUTABLE}" "$@"
+}
+
 git() {
   if [[ -z "${GIT_EXECUTABLE}" ]]
   then
-    GIT_EXECUTABLE="$("${HOMEBREW_LIBRARY}/Homebrew/shims/scm/git" --homebrew=print-path)"
+    GIT_EXECUTABLE="$("${HOMEBREW_LIBRARY}/Homebrew/shims/shared/git" --homebrew=print-path)"
   fi
   "${GIT_EXECUTABLE}" "$@"
 }
@@ -375,24 +383,39 @@ user account:
 EOS
   fi
 
+  # we may want to use Homebrew CA certificates
+  if [[ -n "${HOMEBREW_FORCE_BREWED_CA_CERTIFICATES}" && ! -f "${HOMEBREW_PREFIX}/etc/ca-certificates/cert.pem" ]]
+  then
+    # we cannot install Homebrew CA certificates if homebrew/core is unavailable.
+    if [[ -d "${HOMEBREW_LIBRARY}/Taps/homebrew/homebrew-core" || -n "${HOMEBREW_INSTALL_FROM_API}" ]]
+    then
+      brew install ca-certificates
+      setup_ca_certificates
+    fi
+  fi
+
   # we may want to use a Homebrew curl
   if [[ -n "${HOMEBREW_FORCE_BREWED_CURL}" && ! -x "${HOMEBREW_PREFIX}/opt/curl/bin/curl" ]]
   then
     # we cannot install a Homebrew cURL if homebrew/core is unavailable.
-    if [[ ! -d "${HOMEBREW_LIBRARY}/Taps/homebrew/homebrew-core" ]] || ! brew install curl
+    if [[ ! -d "${HOMEBREW_LIBRARY}/Taps/homebrew/homebrew-core" && -z "${HOMEBREW_INSTALL_FROM_API}" ]] || ! brew install curl
     then
       odie "'curl' must be installed and in your PATH!"
     fi
+
+    setup_curl
   fi
 
   if ! git --version &>/dev/null ||
      [[ -n "${HOMEBREW_FORCE_BREWED_GIT}" && ! -x "${HOMEBREW_PREFIX}/opt/git/bin/git" ]]
   then
     # we cannot install a Homebrew Git if homebrew/core is unavailable.
-    if [[ ! -d "${HOMEBREW_LIBRARY}/Taps/homebrew/homebrew-core" ]] || ! brew install git
+    if [[ ! -d "${HOMEBREW_LIBRARY}/Taps/homebrew/homebrew-core" && -z "${HOMEBREW_INSTALL_FROM_API}" ]] || ! brew install git
     then
       odie "'git' must be installed and in your PATH!"
     fi
+
+    setup_git
   fi
 
   [[ -f "${HOMEBREW_LIBRARY}/Taps/homebrew/homebrew-core/.git/shallow" ]] && HOMEBREW_CORE_SHALLOW=1
@@ -564,7 +587,7 @@ EOS
         # HOMEBREW_CURL is set by brew.sh (and isn't mispelt here)
         # shellcheck disable=SC2153
         UPSTREAM_SHA_HTTP_CODE="$(
-          "${HOMEBREW_CURL}" \
+          curl \
             "${CURL_DISABLE_CURLRC_ARGS[@]}" \
             --silent --max-time 3 \
             --location --no-remote-time --output /dev/null --write-out "%{http_code}" \

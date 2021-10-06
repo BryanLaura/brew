@@ -19,14 +19,7 @@ module Utils
     def curl_executable(use_homebrew_curl: false)
       return Formula["curl"].opt_bin/"curl" if use_homebrew_curl
 
-      @curl ||= [
-        ENV["HOMEBREW_CURL"],
-        which("curl"),
-        "/usr/bin/curl",
-      ].compact.map { |c| Pathname(c) }.find(&:executable?)
-      raise "No executable `curl` was found" unless @curl
-
-      @curl
+      @curl_executable ||= HOMEBREW_SHIMS_PATH/"shared/curl"
     end
 
     sig {
@@ -107,11 +100,9 @@ module Utils
         verbose:      verbose,
       }.compact
 
-      # SSL_CERT_FILE can be incorrectly set by users or portable-ruby and screw
-      # with SSL downloads so unset it here.
       result = system_command curl_executable(use_homebrew_curl: use_homebrew_curl),
                               args:    curl_args(*args, **options),
-                              env:     { "SSL_CERT_FILE" => nil }.merge(env),
+                              env:     env,
                               timeout: end_time&.remaining,
                               **command_options
 
@@ -313,7 +304,16 @@ module Utils
     )
       file = Tempfile.new.tap(&:close)
 
-      specs = specs.flat_map { |option, argument| ["--#{option.to_s.tr("_", "-")}", argument] }
+      # Convert specs to options. This is mostly key-value options,
+      # unless the value is a boolean in which case treat as as flag.
+      specs = specs.flat_map do |option, argument|
+        next [] if argument == false # No flag.
+
+        args = ["--#{option.to_s.tr("_", "-")}"]
+        args << argument unless argument == true # It's a flag.
+        args
+      end
+
       max_time = hash_needed ? 600 : 25
       output, _, status = curl_output(
         *specs, "--dump-header", "-", "--output", file.path, "--location", url,

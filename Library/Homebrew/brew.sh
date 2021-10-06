@@ -165,8 +165,12 @@ brew() {
   "${HOMEBREW_BREW_FILE}" "$@"
 }
 
+curl() {
+  "${HOMEBREW_LIBRARY}/Homebrew/shims/shared/curl" "$@"
+}
+
 git() {
-  "${HOMEBREW_LIBRARY}/Homebrew/shims/scm/git" "$@"
+  "${HOMEBREW_LIBRARY}/Homebrew/shims/shared/git" "$@"
 }
 
 # Search given executable in PATH (remove dependency for `which` command)
@@ -344,31 +348,38 @@ export USER="${USER:-$(id -un)}"
 # Higher depths mean this command was invoked by another Homebrew command.
 export HOMEBREW_COMMAND_DEPTH="$((HOMEBREW_COMMAND_DEPTH + 1))"
 
-# This is set by the user environment.
-# shellcheck disable=SC2154
-if [[ -n "${HOMEBREW_FORCE_BREWED_CURL}" && -x "${HOMEBREW_PREFIX}/opt/curl/bin/curl" ]] &&
-   "${HOMEBREW_PREFIX}/opt/curl/bin/curl" --version &>/dev/null
-then
-  HOMEBREW_CURL="${HOMEBREW_PREFIX}/opt/curl/bin/curl"
-elif [[ -n "${HOMEBREW_DEVELOPER}" && -x "${HOMEBREW_CURL_PATH}" ]]
-then
-  HOMEBREW_CURL="${HOMEBREW_CURL_PATH}"
-else
-  HOMEBREW_CURL="curl"
-fi
+setup_curl() {
+  # This is set by the user environment.
+  # shellcheck disable=SC2154
+  if [[ -n "${HOMEBREW_FORCE_BREWED_CURL}" && -x "${HOMEBREW_PREFIX}/opt/curl/bin/curl" ]] &&
+     "${HOMEBREW_PREFIX}/opt/curl/bin/curl" --version &>/dev/null
+  then
+    HOMEBREW_CURL="${HOMEBREW_PREFIX}/opt/curl/bin/curl"
+  elif [[ -n "${HOMEBREW_DEVELOPER}" && -x "${HOMEBREW_CURL_PATH}" ]]
+  then
+    HOMEBREW_CURL="${HOMEBREW_CURL_PATH}"
+  else
+    HOMEBREW_CURL="curl"
+  fi
+}
 
-# This is set by the user environment.
-# shellcheck disable=SC2154
-if [[ -n "${HOMEBREW_FORCE_BREWED_GIT}" && -x "${HOMEBREW_PREFIX}/opt/git/bin/git" ]] &&
-   "${HOMEBREW_PREFIX}/opt/git/bin/git" --version &>/dev/null
-then
-  HOMEBREW_GIT="${HOMEBREW_PREFIX}/opt/git/bin/git"
-elif [[ -n "${HOMEBREW_DEVELOPER}" && -x "${HOMEBREW_GIT_PATH}" ]]
-then
-  HOMEBREW_GIT="${HOMEBREW_GIT_PATH}"
-else
-  HOMEBREW_GIT="git"
-fi
+setup_git() {
+  # This is set by the user environment.
+  # shellcheck disable=SC2154
+  if [[ -n "${HOMEBREW_FORCE_BREWED_GIT}" && -x "${HOMEBREW_PREFIX}/opt/git/bin/git" ]] &&
+     "${HOMEBREW_PREFIX}/opt/git/bin/git" --version &>/dev/null
+  then
+    HOMEBREW_GIT="${HOMEBREW_PREFIX}/opt/git/bin/git"
+  elif [[ -n "${HOMEBREW_DEVELOPER}" && -x "${HOMEBREW_GIT_PATH}" ]]
+  then
+    HOMEBREW_GIT="${HOMEBREW_GIT_PATH}"
+  else
+    HOMEBREW_GIT="git"
+  fi
+}
+
+setup_curl
+setup_git
 
 HOMEBREW_VERSION="$("${HOMEBREW_GIT}" -C "${HOMEBREW_REPOSITORY}" describe --tags --dirty --abbrev=7 2>/dev/null)"
 HOMEBREW_USER_AGENT_VERSION="${HOMEBREW_VERSION}"
@@ -427,6 +438,20 @@ then
       printf "         For 10.4 - 10.6 support see: https://github.com/mistydemeo/tigerbrew\\n" >&2
     fi
     printf "\\n" >&2
+  fi
+
+  # Versions before Sierra don't handle custom cert files correctly, so need a full brewed curl.
+  if [[ "${HOMEBREW_MACOS_VERSION_NUMERIC}" -lt "101200" ]]
+  then
+    HOMEBREW_SYSTEM_CURL_TOO_OLD="1"
+    HOMEBREW_FORCE_BREWED_CURL="1"
+  fi
+
+  # The system libressl has a bug before macOS 10.15.6 where it incorrectly handles expired roots.
+  if [[ -z "${HOMEBREW_SYSTEM_CURL_TOO_OLD}" && "${HOMEBREW_MACOS_VERSION_NUMERIC}" -lt "101506" ]]
+  then
+    HOMEBREW_SYSTEM_CA_CERTIFICATES_TOO_OLD="1"
+    HOMEBREW_FORCE_BREWED_CA_CERTIFICATES="1"
   fi
 
   # The system Git on macOS versions before Sierra is too old for some Homebrew functionality we rely on.
@@ -530,6 +555,19 @@ Your Git executable: $(unset git && type -p ${HOMEBREW_GIT})"
   fi
 fi
 
+setup_ca_certificates() {
+  if [[ -n "${HOMEBREW_FORCE_BREWED_CA_CERTIFICATES}" && -f "${HOMEBREW_PREFIX}/etc/ca-certificates/cert.pem" ]]
+  then
+    export SSL_CERT_FILE="${HOMEBREW_PREFIX}/etc/ca-certificates/cert.pem"
+    export GIT_SSL_CAINFO="${HOMEBREW_PREFIX}/etc/ca-certificates/cert.pem"
+  fi
+}
+setup_ca_certificates
+
+# Redetermine curl and git paths as we may have forced some options above.
+setup_curl
+setup_git
+
 # A bug in the auto-update process prior to 3.1.2 means $HOMEBREW_BOTTLE_DOMAIN
 # could be passed down with the default domain.
 # This is problematic as this is will be the old bottle domain.
@@ -554,7 +592,7 @@ else
 fi
 
 HOMEBREW_USER_AGENT="${HOMEBREW_PRODUCT}/${HOMEBREW_USER_AGENT_VERSION} (${HOMEBREW_SYSTEM}; ${HOMEBREW_PROCESSOR} ${HOMEBREW_OS_USER_AGENT_VERSION})"
-curl_version_output="$("${HOMEBREW_CURL}" --version 2>/dev/null)"
+curl_version_output="$(curl --version 2>/dev/null)"
 curl_name_and_version="${curl_version_output%% (*}"
 HOMEBREW_USER_AGENT_CURL="${HOMEBREW_USER_AGENT} ${curl_name_and_version// //}"
 
@@ -567,6 +605,7 @@ export HOMEBREW_DEFAULT_TEMP
 export HOMEBREW_TEMP
 export HOMEBREW_CELLAR
 export HOMEBREW_SYSTEM
+export HOMEBREW_SYSTEM_CA_CERTIFICATES_TOO_OLD
 export HOMEBREW_CURL
 export HOMEBREW_CURL_WARNING
 export HOMEBREW_SYSTEM_CURL_TOO_OLD
