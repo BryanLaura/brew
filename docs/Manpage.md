@@ -600,6 +600,8 @@ using protocols other than HTTPS, e.g. SSH, git, HTTP, FTP(S), rsync.
   Fetch tap as a shallow clone rather than a full clone. Useful for continuous integration.
 * `--force-auto-update`:
   Auto-update tap even if it is not hosted on GitHub. By default, only taps hosted on GitHub are auto-updated (for performance reasons).
+* `--custom-remote`:
+  Install or change a tap with a custom remote. Useful for mirrors.
 * `--repair`:
   Migrate tapped formulae from symlink-based to directory-based structure.
 * `--list-pinned`:
@@ -968,10 +970,10 @@ nor vice versa. It must use whichever style specification the formula already us
 
 * `-n`, `--dry-run`:
   Print what would be done rather than doing it.
-* `--write`:
+* `--write-only`:
   Make the expected file modifications without taking any Git actions.
 * `--commit`:
-  When passed with `--write`, generate a new commit after writing changes to the formula file.
+  When passed with `--write-only`, generate a new commit after writing changes to the formula file.
 * `--no-audit`:
   Don't run `brew audit` before opening the PR.
 * `--strict`:
@@ -1986,7 +1988,7 @@ example, run `export HOMEBREW_NO_INSECURE_REDIRECT=1` rather than just
   <br>If set, always use a Homebrew-installed `git`(1) rather than the system version. Automatically set if the system version of `git` is too old.
 
 - `HOMEBREW_FORCE_HOMEBREW_ON_LINUX`
-  <br>If set, running Homebrew on Linux will use URLs for macOS. This is useful when merging pull requests for macOS while on Linux.
+  <br>If set, running Homebrew on Linux will use URLs for macOS and will use homebrew-core instead of linuxbrew-core. This is useful when merging pull requests for macOS while on Linux.
 
 - `HOMEBREW_FORCE_VENDOR_RUBY`
   <br>If set, always use Homebrew's vendored, relocatable Ruby version even if the system version of Ruby is new enough.

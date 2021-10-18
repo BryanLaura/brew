@@ -22,6 +22,10 @@ module Utils
       @curl_executable ||= HOMEBREW_SHIMS_PATH/"shared/curl"
     end
 
+    def curl_path
+      @curl_path ||= Utils.popen_read(curl_executable, "--homebrew=print-path").chomp.presence
+    end
+
     sig {
       params(
         extra_args:      T.untyped,
@@ -184,7 +188,7 @@ module Utils
     # Check if a URL is protected by CloudFlare (e.g. badlion.net and jaxx.io).
     def url_protected_by_cloudflare?(details)
       [403, 503].include?(details[:status].to_i) &&
-        details[:headers].match?(/^Set-Cookie: __cfduid=/i) &&
+        details[:headers].match?(/^Set-Cookie: (__cfduid|__cf_bm)=/i) &&
         details[:headers].match?(/^Server: cloudflare/i)
     end
 

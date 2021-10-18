@@ -76,8 +76,11 @@ module SystemConfig
     def describe_clang
       return "N/A" if clang.null?
 
-      clang_build_info = clang_build.null? ? "(parse error)" : clang_build
-      "#{clang} build #{clang_build_info}"
+      if clang_build.null?
+        clang.to_s
+      else
+        "#{clang} build #{clang_build}"
+      end
     end
 
     def describe_path(path)
@@ -130,7 +133,7 @@ module SystemConfig
       out, = system_command(curl_executable, args: ["--version"], verbose: false)
 
       if /^curl (?<curl_version>[\d.]+)/ =~ out
-        "#{curl_version} => #{curl_executable}"
+        "#{curl_version} => #{curl_path}"
       else
         "N/A"
       end

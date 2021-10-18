@@ -831,6 +831,10 @@ Fetch tap as a shallow clone rather than a full clone\. Useful for continuous in
 Auto\-update tap even if it is not hosted on GitHub\. By default, only taps hosted on GitHub are auto\-updated (for performance reasons)\.
 .
 .TP
+\fB\-\-custom\-remote\fR
+Install or change a tap with a custom remote\. Useful for mirrors\.
+.
+.TP
 \fB\-\-repair\fR
 Migrate tapped formulae from symlink\-based to directory\-based structure\.
 .
@@ -1361,12 +1365,12 @@ If a \fIversion\fR is specified, a best effort to determine the \fIURL\fR and \f
 Print what would be done rather than doing it\.
 .
 .TP
-\fB\-\-write\fR
+\fB\-\-write\-only\fR
 Make the expected file modifications without taking any Git actions\.
 .
 .TP
 \fB\-\-commit\fR
-When passed with \fB\-\-write\fR, generate a new commit after writing changes to the formula file\.
+When passed with \fB\-\-write\-only\fR, generate a new commit after writing changes to the formula file\.
 .
 .TP
 \fB\-\-no\-audit\fR
@@ -2847,7 +2851,7 @@ If set, always use a Homebrew\-installed \fBgit\fR(1) rather than the system ver
 \fBHOMEBREW_FORCE_HOMEBREW_ON_LINUX\fR
 .
 .br
-If set, running Homebrew on Linux will use URLs for macOS\. This is useful when merging pull requests for macOS while on Linux\.
+If set, running Homebrew on Linux will use URLs for macOS and will use homebrew\-core instead of linuxbrew\-core\. This is useful when merging pull requests for macOS while on Linux\.
 .
 .TP
 \fBHOMEBREW_FORCE_VENDOR_RUBY\fR
