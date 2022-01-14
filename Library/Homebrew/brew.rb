@@ -86,26 +86,7 @@ begin
   require "commands"
   require "settings"
 
-  if cmd
-    internal_cmd = Commands.valid_internal_cmd?(cmd)
-    internal_cmd ||= begin
-      internal_dev_cmd = Commands.valid_internal_dev_cmd?(cmd)
-      if internal_dev_cmd && !Homebrew::EnvConfig.developer?
-        if ENV["HOMEBREW_DEV_CMD_RUN"].blank?
-          opoo <<~MESSAGE
-            #{Tty.bold}#{cmd}#{Tty.reset} is a developer command, so
-            Homebrew's developer mode has been automatically turned on.
-            To turn developer mode off, run #{Tty.bold}brew developer off#{Tty.reset}
-
-          MESSAGE
-        end
-
-        Homebrew::Settings.write "devcmdrun", true
-        ENV["HOMEBREW_DEV_CMD_RUN"] = "1"
-      end
-      internal_dev_cmd
-    end
-  end
+  internal_cmd = Commands.valid_internal_cmd?(cmd) || Commands.valid_internal_dev_cmd?(cmd) if cmd
 
   unless internal_cmd
     # Add contributed commands to PATH before checking.
@@ -198,10 +179,13 @@ rescue MethodDeprecatedError => e
   exit 1
 rescue Exception => e # rubocop:disable Lint/RescueException
   onoe e
-  if internal_cmd && defined?(OS::ISSUES_URL) &&
-     !Homebrew::EnvConfig.no_auto_update?
-    $stderr.puts "#{Tty.bold}Please report this issue:#{Tty.reset}"
-    $stderr.puts "  #{Formatter.url(OS::ISSUES_URL)}"
+  if internal_cmd && defined?(OS::ISSUES_URL)
+    if Homebrew::EnvConfig.no_auto_update?
+      $stderr.puts "#{Tty.bold}Do not report this issue until you've run `brew update` and tried again.#{Tty.reset}"
+    else
+      $stderr.puts "#{Tty.bold}Please report this issue:#{Tty.reset}"
+      $stderr.puts "  #{Formatter.url(OS::ISSUES_URL)}"
+    end
   end
   $stderr.puts e.backtrace
   exit 1

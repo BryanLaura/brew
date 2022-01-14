@@ -591,6 +591,8 @@ module Homebrew
 
       def check_coretap_integrity
         coretap = CoreTap.instance
+        return if !coretap.installed? && EnvConfig.install_from_api?
+
         broken_tap(coretap) || examine_git_origin(coretap.path, Homebrew::EnvConfig.core_git_remote)
       end
 
@@ -722,6 +724,8 @@ module Homebrew
         end
 
         repos.each do |name, path|
+          next unless path.exist?
+
           status = path.cd do
             `git status --untracked-files=all --porcelain 2>/dev/null`
           end
@@ -877,11 +881,20 @@ module Homebrew
       end
 
       def check_deleted_formula
-        keg_names = Keg.all.map(&:name).uniq
+        kegs = Keg.all
 
-        deleted_formulae = keg_names.map do |keg_name|
-          keg_name if Formulary.tap_paths(keg_name).blank?
-        end.compact
+        deleted_formulae = kegs.map do |keg|
+          next if Formulary.tap_paths(keg.name).any?
+
+          if !CoreTap.instance.installed? && EnvConfig.install_from_api?
+            # Formulae installed with HOMEBREW_INSTALL_FROM_API should not count as deleted formulae
+            # but may not have a tap listed in their tab
+            tap = Tab.for_keg(keg).tap
+            next if (tap.blank? || tap.core_tap?) && Homebrew::API::Bottle.available?(keg.name)
+          end
+
+          keg.name
+        end.compact.uniq
 
         return if deleted_formulae.blank?
 

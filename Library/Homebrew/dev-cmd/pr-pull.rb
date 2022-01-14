@@ -218,7 +218,7 @@ module Homebrew
 
     # Generate a bidirectional mapping of commits <=> formula files.
     files_to_commits = {}
-    commits_to_files = commits.map do |commit|
+    commits_to_files = commits.to_h do |commit|
       files = Utils.safe_popen_read("git", "-C", path, "diff-tree", "--diff-filter=AMD",
                                     "-r", "--name-only", "#{commit}^", commit).lines.map(&:strip)
       files.each do |file|
@@ -233,7 +233,7 @@ module Homebrew
         EOS
       end
       [commit, files]
-    end.to_h
+    end
 
     # Reset to state before cherry-picking.
     safe_system "git", "-C", path, "reset", "--hard", original_commit
@@ -301,7 +301,7 @@ module Homebrew
 
   def changed_formulae(tap, original_commit)
     if Homebrew::EnvConfig.disable_load_formula?
-      opoo "Can't check if updated bottles are necessary as formula loading is disabled!"
+      opoo "Can't check if updated bottles are necessary as HOMEBREW_DISABLE_LOAD_FORMULA is set!"
       return
     end
 

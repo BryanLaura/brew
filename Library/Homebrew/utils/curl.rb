@@ -17,7 +17,7 @@ module Utils
     module_function
 
     def curl_executable(use_homebrew_curl: false)
-      return Formula["curl"].opt_bin/"curl" if use_homebrew_curl
+      return Pathname.new(ENV["HOMEBREW_BREWED_CURL_PATH"]) if use_homebrew_curl
 
       @curl_executable ||= HOMEBREW_SHIMS_PATH/"shared/curl"
     end
@@ -52,7 +52,7 @@ module Utils
       args << "--disable" unless Homebrew::EnvConfig.curlrc?
 
       # echo any cookies received on a redirect
-      args << "--cookie-jar" << "/dev/null"
+      args << "--cookie" << "/dev/null"
 
       args << "--globoff"
 
@@ -355,6 +355,13 @@ module Utils
       }
     ensure
       file.unlink
+    end
+
+    def curl_supports_tls13?
+      @curl_supports_tls13 ||= Hash.new do |h, key|
+        h[key] = quiet_system(curl_executable, "--tlsv1.3", "--head", "https://brew.sh/")
+      end
+      @curl_supports_tls13[ENV["HOMEBREW_CURL"]]
     end
 
     def http_status_ok?(status)

@@ -55,7 +55,6 @@ module RuboCop
               "# if this fails, try separate make/make install steps",
               "# The URL of the archive",
               "## Naming --",
-              "# if your formula requires any X11/XQuartz components",
               "# if your formula fails when building in parallel",
               "# Remove unrecognized options if warned by configure",
               '# system "cmake',
@@ -212,6 +211,32 @@ module RuboCop
         end
       end
 
+      # This cop makes sure that formulae do not depend on `pyoxidizer` at build-time
+      # or run-time.
+      #
+      # @api private
+      class PyoxidizerCheck < FormulaCop
+        def audit_formula(_node, _class_node, _parent_class_node, body_node)
+          # Disallow use of PyOxidizer as a dependency in core
+          return unless formula_tap == "homebrew-core"
+
+          find_method_with_args(body_node, :depends_on, "pyoxidizer") do
+            problem "Formulae in homebrew/core should not use '#{@offensive_node.source}'."
+          end
+
+          [
+            :build,
+            [:build],
+            [:build, :test],
+            [:test, :build],
+          ].each do |type|
+            find_method_with_args(body_node, :depends_on, "pyoxidizer" => type) do
+              problem "Formulae in homebrew/core should not use '#{@offensive_node.source}'."
+            end
+          end
+        end
+      end
+
       # This cop makes sure that the safe versions of `popen_*` calls are used.
       #
       # @api private
@@ -355,7 +380,7 @@ module RuboCop
 
         def audit_formula(_node, _class_node, _parent_class_node, body_node)
           no_on_os_method_names = [:install, :post_install].freeze
-          no_on_os_block_names = [:test].freeze
+          no_on_os_block_names = [:service, :test].freeze
           [[:on_macos, :mac?], [:on_linux, :linux?]].each do |on_method_name, if_method_name|
             if_method_and_class = "if OS.#{if_method_name}"
             no_on_os_method_names.each do |formula_method_name|
@@ -417,10 +442,6 @@ module RuboCop
                 break
               end
               next if valid
-
-              # TODO: temporarily allow this for linuxbrew-core merge.
-              next if method&.parent&.parent&.source&.start_with?("revision OS.mac?")
-              next if method&.parent&.source&.match?(/revision \d unless OS\.mac\?/)
 
               offending_node(method)
               problem "Don't use '#{if_method_and_class}', use '#{on_method_name} do' instead." do |corrector|

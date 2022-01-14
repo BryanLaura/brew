@@ -33,20 +33,6 @@ class GitHubPackages
     "Macintosh" => "darwin",
   }.freeze
 
-  sig { returns(String) }
-  def inspect
-    "#<GitHubPackages: org=#{@github_org}>"
-  end
-
-  sig { params(org: T.nilable(String)).void }
-  def initialize(org: "homebrew")
-    @github_org = org
-
-    raise UsageError, "Must set a GitHub organisation!" unless @github_org
-
-    ENV["HOMEBREW_FORCE_HOMEBREW_ON_LINUX"] = "1" if @github_org == "homebrew" && !OS.mac?
-  end
-
   sig {
     params(
       bottles_hash:  T::Hash[String, T.untyped],
@@ -62,18 +48,7 @@ class GitHubPackages
     raise UsageError, "HOMEBREW_GITHUB_PACKAGES_USER is unset." if user.blank?
     raise UsageError, "HOMEBREW_GITHUB_PACKAGES_TOKEN is unset." if token.blank?
 
-    skopeo = [
-      which("skopeo"),
-      which("skopeo", ENV["HOMEBREW_PATH"]),
-      HOMEBREW_PREFIX/"bin/skopeo",
-    ].compact.first
-    unless skopeo.exist?
-      odie "no `skopeo` and HOMEBREW_FORCE_HOMEBREW_ON_LINUX is set!" if Homebrew::EnvConfig.force_homebrew_on_linux?
-
-      ohai "Installing `skopeo` for upload..."
-      safe_system HOMEBREW_BREW_FILE, "install", "--formula", "skopeo"
-      skopeo = Formula["skopeo"].opt_bin/"skopeo"
-    end
+    skopeo = ensure_executable!("skopeo", reason: "upload")
 
     require "json_schemer"
 
@@ -273,13 +248,7 @@ class GitHubPackages
     git_path = bottle_hash["formula"]["tap_git_path"]
     git_revision = bottle_hash["formula"]["tap_git_revision"]
 
-    # we're uploading Homebrew/linuxbrew-core bottles to Linuxbrew with a core/
-    # prefix.
-    source_org_repo = if org.casecmp("linuxbrew").zero? && repo == "homebrew-core"
-      "Homebrew/linuxbrew-core"
-    else
-      "#{org}/#{repo}"
-    end
+    source_org_repo = "#{org}/#{repo}"
     source = "https://github.com/#{source_org_repo}/blob/#{git_revision.presence || "HEAD"}/#{git_path}"
 
     formula_core_tap = formula_full_name.exclude?("/")

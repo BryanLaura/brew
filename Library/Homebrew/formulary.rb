@@ -274,12 +274,14 @@ module Formulary
 
     def load_file(flags:, ignore_errors:)
       if %r{githubusercontent.com/[\w-]+/[\w-]+/[a-f0-9]{40}(?:/Formula)?/(?<formula_name>[\w+-.@]+).rb} =~ url
-        raise UsageError, "Installation of #{formula_name} from a GitHub commit URL is unsupported! " \
-                          "`brew extract #{formula_name}` to a stable tap on GitHub instead."
+        raise UnsupportedInstallationMethod,
+              "Installation of #{formula_name} from a GitHub commit URL is unsupported! " \
+              "`brew extract #{formula_name}` to a stable tap on GitHub instead."
       elsif url.match?(%r{^(https?|ftp)://})
-        raise UsageError, "Non-checksummed download of #{name} formula file from an arbitrary URL is unsupported! ",
-              "`brew extract` or `brew create` and `brew tap-new` to create a "\
-              "formula file in a tap on GitHub instead."
+        raise UnsupportedInstallationMethod,
+              "Non-checksummed download of #{name} formula file from an arbitrary URL is unsupported! " \
+              "`brew extract` or `brew create` and `brew tap-new` to create a formula file in a tap " \
+              "on GitHub instead."
       end
       HOMEBREW_CACHE_FORMULA.mkpath
       FileUtils.rm_f(path)
@@ -343,6 +345,10 @@ module Formulary
     rescue FormulaClassUnavailableError => e
       raise TapFormulaClassUnavailableError.new(tap, name, e.path, e.class_name, e.class_list), "", e.backtrace
     rescue FormulaUnavailableError => e
+      if tap.core_tap? && Homebrew::EnvConfig.install_from_api?
+        raise CoreTapFormulaUnavailableError.new(name), "", e.backtrace
+      end
+
       raise TapFormulaUnavailableError.new(tap, name), "", e.backtrace
     end
 
@@ -361,7 +367,7 @@ module Formulary
     end
 
     def get_formula(*)
-      if !CoreTap.instance.installed? && ENV["HOMEBREW_INSTALL_FROM_API"].present?
+      if !CoreTap.instance.installed? && Homebrew::EnvConfig.install_from_api?
         raise CoreTapFormulaUnavailableError, name
       end
 
@@ -399,7 +405,7 @@ module Formulary
   )
     raise ArgumentError, "Formulae must have a ref!" unless ref
 
-    if ENV["HOMEBREW_INSTALL_FROM_API"].present? &&
+    if Homebrew::EnvConfig.install_from_api? &&
        @formula_name_local_bottle_path_map.present? &&
        @formula_name_local_bottle_path_map.key?(ref)
       ref = @formula_name_local_bottle_path_map[ref]
@@ -431,7 +437,7 @@ module Formulary
   # @param formula_name the formula name string to map.
   # @param local_bottle_path a path pointing to the target bottle archive.
   def self.map_formula_name_to_local_bottle_path(formula_name, local_bottle_path)
-    if ENV["HOMEBREW_INSTALL_FROM_API"].blank?
+    unless Homebrew::EnvConfig.install_from_api?
       raise UsageError, "HOMEBREW_INSTALL_FROM_API not set but required for #{__method__}!"
     end
 
@@ -450,7 +456,7 @@ module Formulary
     keg = kegs.find(&:linked?) || kegs.find(&:optlinked?) || kegs.max_by(&:version)
 
     if keg
-      from_keg(keg, spec, alias_path: alias_path)
+      from_keg(keg, spec, alias_path: alias_path, force_bottle: force_bottle, flags: flags)
     else
       factory(rack.basename.to_s, spec || :stable, alias_path: alias_path, from: :rack,
               force_bottle: force_bottle, flags: flags)
@@ -533,6 +539,13 @@ module Formulary
     when URL_START_REGEX
       return FromUrlLoader.new(ref)
     when HOMEBREW_TAP_FORMULA_REGEX
+      # If `homebrew/core` is specified and not installed, check whether the formula is already installed.
+      if ref.start_with?("homebrew/core/") && !CoreTap.instance.installed? && Homebrew::EnvConfig.install_from_api?
+        name = ref.split("/", 3).last
+        possible_keg_formula = Pathname.new("#{HOMEBREW_PREFIX}/opt/#{name}/.brew/#{name}.rb")
+        return FormulaLoader.new(name, possible_keg_formula) if possible_keg_formula.file?
+      end
+
       return TapLoader.new(ref, from: from)
     end
 
@@ -553,23 +566,16 @@ module Formulary
       return FormulaLoader.new(name, path)
     end
 
-    if (newref = CoreTap.instance.formula_renames[ref])
-      formula_with_that_oldname = core_path(newref)
-      return FormulaLoader.new(newref, formula_with_that_oldname) if formula_with_that_oldname.file?
-    end
+    return TapLoader.new("#{CoreTap.instance}/#{ref}", from: from) if CoreTap.instance.formula_renames.key?(ref)
 
-    possible_tap_newname_formulae = []
-    Tap.each do |tap|
-      if (newref = tap.formula_renames[ref])
-        possible_tap_newname_formulae << "#{tap.name}/#{newref}"
-      end
-    end
+    possible_taps = Tap.select { |tap| tap.formula_renames.key?(ref) }
 
-    if possible_tap_newname_formulae.size > 1
+    if possible_taps.size > 1
+      possible_tap_newname_formulae = possible_taps.map { |tap| "#{tap}/#{tap.formula_renames[ref]}" }
       raise TapFormulaWithOldnameAmbiguityError.new(ref, possible_tap_newname_formulae)
     end
 
-    return TapLoader.new(possible_tap_newname_formulae.first, from: from) unless possible_tap_newname_formulae.empty?
+    return TapLoader.new("#{possible_taps.first}/#{ref}", from: from) unless possible_taps.empty?
 
     possible_keg_formula = Pathname.new("#{HOMEBREW_PREFIX}/opt/#{ref}/.brew/#{ref}.rb")
     return FormulaLoader.new(ref, possible_keg_formula) if possible_keg_formula.file?

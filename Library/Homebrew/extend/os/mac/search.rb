@@ -15,7 +15,7 @@ module Homebrew
         return if args.formula?
 
         ohai "Casks"
-        Cask::Cask.to_a.extend(Searchable)
+        Cask::Cask.all.extend(Searchable)
                   .search(string_or_regex, &:name)
                   .each do |cask|
           puts "#{Tty.bold}#{cask.token}:#{Tty.reset} #{cask.name.join(", ")}"
@@ -31,9 +31,16 @@ module Homebrew
           end
         end
 
-        results = Cask::Cask.search(string_or_regex, &:token).sort_by(&:token)
+        cask_tokens = Tap.flat_map(&:cask_tokens)
 
-        results.map do |cask|
+        results = cask_tokens.extend(Searchable)
+                             .search(string_or_regex)
+
+        results |= DidYouMean::SpellChecker.new(dictionary: cask_tokens)
+                                           .correct(string_or_regex)
+
+        results.sort.map do |name|
+          cask = Cask::CaskLoader.load(name)
           if cask.installed?
             pretty_installed(cask.token)
           else

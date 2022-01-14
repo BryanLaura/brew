@@ -7,14 +7,19 @@ module Homebrew
       # The {Apache} strategy identifies versions of software at apache.org
       # by checking directory listing pages.
       #
-      # Apache URLs start with `https://www.apache.org/dyn/closer.lua?path=`.
-      # The `path` parameter takes one of the following formats:
+      # Most Apache URLs start with `https://www.apache.org/dyn/` and include
+      # a `filename` or `path` query string parameter where the value is a
+      # path to a file. The path takes one of the following formats:
       #
       # * `example/1.2.3/example-1.2.3.tar.gz`
       # * `example/example-1.2.3/example-1.2.3.tar.gz`
       # * `example/example-1.2.3-bin.tar.gz`
       #
-      # When the `path` contains a version directory (e.g. `/1.2.3/`,
+      # This strategy also handles a few common mirror/backup URLs where the
+      # path is provided outside of a query string parameter (e.g.
+      # `https://archive.apache.org/dist/example/1.2.3/example-1.2.3.tar.gz`).
+      #
+      # When the path contains a version directory (e.g. `/1.2.3/`,
       # `/example-1.2.3/`, etc.), the default regex matches numeric versions
       # in directory names. Otherwise, the default regex matches numeric
       # versions in filenames.
@@ -25,8 +30,11 @@ module Homebrew
 
         # The `Regexp` used to determine if the strategy applies to the URL.
         URL_MATCH_REGEX = %r{
-          ^https?://www\.apache\.org
-          /dyn/.+path=
+          ^https?://
+          (?:www\.apache\.org/dyn/.+(?:path|filename)=/?|
+          archive\.apache\.org/dist/|
+          dlcdn\.apache\.org/|
+          downloads\.apache\.org/)
           (?<path>.+?)/      # Path to directory of files or version directories
           (?<prefix>[^/]*?)  # Any text in filename or directory before version
           v?\d+(?:\.\d+)+    # The numeric version
@@ -85,9 +93,7 @@ module Homebrew
             url:    String,
             regex:  T.nilable(Regexp),
             unused: T.nilable(T::Hash[Symbol, T.untyped]),
-            block:  T.nilable(
-              T.proc.params(arg0: String, arg1: Regexp).returns(T.any(String, T::Array[String], NilClass)),
-            ),
+            block:  T.untyped,
           ).returns(T::Hash[Symbol, T.untyped])
         }
         def self.find_versions(url:, regex: nil, **unused, &block)

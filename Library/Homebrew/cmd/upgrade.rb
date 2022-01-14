@@ -23,6 +23,9 @@ module Homebrew
         installed with, plus any appended brew formula options. If <cask> or <formula> are specified,
         upgrade only the given <cask> or <formula> kegs (unless they are pinned; see `pin`, `unpin`).
 
+        Unless `HOMEBREW_NO_INSTALLED_DEPENDENTS_CHECK` is set, `brew upgrade` or `brew reinstall` will be run for
+        outdated dependents and dependents with broken linkage, respectively.
+
         Unless `HOMEBREW_NO_INSTALL_CLEANUP` is set, `brew cleanup` will then be run for the
         upgraded formulae or, every 30 days, for all formulae.
       EOS
@@ -158,7 +161,7 @@ module Homebrew
       puts pinned.map { |f| "#{f.full_specified_name} #{f.pkg_version}" } * ", "
     end
 
-    if ENV["HOMEBREW_INSTALL_FROM_API"].present?
+    if Homebrew::EnvConfig.install_from_api?
       formulae_to_install.map! do |formula|
         next formula if formula.head?
         next formula if formula.tap.present? && !formula.core_formula?
@@ -223,7 +226,7 @@ module Homebrew
   def upgrade_outdated_casks(casks, args:)
     return false if args.formula?
 
-    if ENV["HOMEBREW_INSTALL_FROM_API"].present?
+    if Homebrew::EnvConfig.install_from_api?
       casks = casks.map do |cask|
         next cask if cask.tap.present? && cask.tap != "homebrew/cask"
         next cask unless Homebrew::API::CaskSource.available?(cask.token)

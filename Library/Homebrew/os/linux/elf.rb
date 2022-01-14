@@ -101,11 +101,7 @@ module ELFShim
   def patch!(interpreter: nil, rpath: nil)
     return if interpreter.blank? && rpath.blank?
 
-    if HOMEBREW_PATCHELF_RB_WRITE
-      save_using_patchelf_rb interpreter, rpath
-    else
-      save_using_patchelf interpreter, rpath
-    end
+    save_using_patchelf_rb interpreter, rpath
   end
 
   def dynamic_elf?
@@ -137,8 +133,6 @@ module ELFShim
         match.captures.compact.first
       end.compact
       @dylibs = ldd_paths.select do |ldd_path|
-        next true unless ldd_path.start_with? "/"
-
         needed.include? File.basename(ldd_path)
       end
     end
@@ -157,16 +151,6 @@ module ELFShim
     end
   end
   private_constant :Metadata
-
-  def save_using_patchelf(new_interpreter, new_rpath)
-    patchelf = DevelopmentTools.locate "patchelf"
-    odie "Could not locate `patchelf`; please run `brew install patchelf`" if patchelf.blank?
-    args = []
-    args << "--set-interpreter" << new_interpreter if new_interpreter.present?
-    args << "--force-rpath" << "--set-rpath" << new_rpath if new_rpath.present?
-
-    Homebrew.safe_system(patchelf, *args, to_s)
-  end
 
   def save_using_patchelf_rb(new_interpreter, new_rpath)
     patcher = patchelf_patcher

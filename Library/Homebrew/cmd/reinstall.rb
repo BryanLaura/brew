@@ -26,6 +26,9 @@ module Homebrew
         Uninstall and then reinstall a <formula> or <cask> using the same options it was
         originally installed with, plus any appended options specific to a <formula>.
 
+        Unless `HOMEBREW_NO_INSTALLED_DEPENDENTS_CHECK` is set, `brew upgrade` or `brew reinstall` will be run for
+        outdated dependents and dependents with broken linkage, respectively.
+
         Unless `HOMEBREW_NO_INSTALL_CLEANUP` is set, `brew cleanup` will then be run for the
         reinstalled formulae or, every 30 days, for all formulae.
       EOS
@@ -88,7 +91,7 @@ module Homebrew
     # We need to use the bottle API instead of just using the formula file
     # from an installed keg because it will not contain bottle information.
     # As a consequence, `brew reinstall` will also upgrade outdated formulae
-    if ENV["HOMEBREW_INSTALL_FROM_API"].present?
+    if Homebrew::EnvConfig.install_from_api?
       args.named.each do |name|
         formula = Formulary.factory(name)
         next unless formula.any_version_installed?

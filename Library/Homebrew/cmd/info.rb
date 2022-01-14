@@ -207,7 +207,7 @@ module Homebrew
       end
     when :v2
       formulae, casks = if args.all?
-        [Formula.sort, Cask::Cask.to_a.sort_by(&:full_name)]
+        [Formula.sort, Cask::Cask.all.sort_by(&:full_name)]
       elsif args.installed?
         [Formula.installed.sort, Cask::Caskroom.casks.sort_by(&:full_name)]
       else
@@ -252,7 +252,7 @@ module Homebrew
   def info_formula(f, args:)
     specs = []
 
-    if ENV["HOMEBREW_INSTALL_FROM_API"].present? && Homebrew::API::Bottle.available?(f.name)
+    if Homebrew::EnvConfig.install_from_api? && Homebrew::API::Bottle.available?(f.name)
       info = Homebrew::API::Bottle.fetch(f.name)
 
       latest_version = info["pkg_version"].split("_").first

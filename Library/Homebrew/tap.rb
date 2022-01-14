@@ -659,7 +659,7 @@ class Tap
 
     TAP_DIRECTORY.subdirs.each do |user|
       user.subdirs.each do |repo|
-        block.call fetch(user.basename.to_s, repo.basename.to_s)
+        yield fetch(user.basename.to_s, repo.basename.to_s)
       end
     end
   end
@@ -689,6 +689,23 @@ class Tap
   # @private
   def alias_file_to_name(file)
     "#{name}/#{file.basename}"
+  end
+
+  def audit_exception(list, formula_or_cask, value = nil)
+    return false if audit_exceptions.blank?
+    return false unless audit_exceptions.key? list
+
+    list = audit_exceptions[list]
+
+    case list
+    when Array
+      list.include? formula_or_cask
+    when Hash
+      return false unless list.include? formula_or_cask
+      return list[formula_or_cask] if value.blank?
+
+      list[formula_or_cask] == value
+    end
   end
 
   private
@@ -755,7 +772,7 @@ class CoreTap < Tap
 
   def self.ensure_installed!
     return if instance.installed?
-    return if ENV["HOMEBREW_INSTALL_FROM_API"].present?
+    return if Homebrew::EnvConfig.install_from_api?
 
     safe_system HOMEBREW_BREW_FILE, "tap", instance.name
   end
@@ -778,7 +795,7 @@ class CoreTap < Tap
   # @private
   sig { params(manual: T::Boolean).void }
   def uninstall(manual: false)
-    raise "Tap#uninstall is not available for CoreTap" if ENV["HOMEBREW_INSTALL_FROM_API"].blank?
+    raise "Tap#uninstall is not available for CoreTap" unless Homebrew::EnvConfig.install_from_api?
 
     super
   end
@@ -805,6 +822,12 @@ class CoreTap < Tap
   sig { returns(T::Boolean) }
   def core_tap?
     true
+  end
+
+  # @private
+  sig { returns(T::Boolean) }
+  def linuxbrew_core?
+    remote_repo.to_s.end_with?("/linuxbrew-core") || remote_repo == "Linuxbrew/homebrew-core"
   end
 
   # @private

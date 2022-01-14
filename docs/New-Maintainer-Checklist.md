@@ -34,7 +34,6 @@ A few requests:
   Here are links to these guides:
     - Homebrew/brew: https://docs.brew.sh/Homebrew-brew-Maintainer-Guide
     - Homebrew/homebrew-core: https://docs.brew.sh/Homebrew-homebrew-core-Maintainer-Guide
-    - Homebrew/linuxbrew-core: https://docs.brew.sh/Homebrew-linuxbrew-core-Maintainer-Guide
     - Homebrew/homebrew-cask: https://docs.brew.sh/Homebrew-homebrew-cask-Maintainer-Guide
 - Still create your branches on your fork rather than in the main repository.
   Note GitHub's UI will create edits and reverts on the main repository if you
@@ -66,7 +65,6 @@ If they are interested in doing system administration work:
 
 If they are elected to the Homebrew's [Project Leadership Committee](https://docs.brew.sh/Homebrew-Governance#4-project-leadership-committee):
 
-- Email their name, email and employer to the [Software Freedom Conservancy](https://sfconservancy.org) at homebrew@sfconservancy.org
 - Make them [owners on the Homebrew GitHub organisation](https://github.com/orgs/Homebrew/people)
 - Invite them to the [**@Homebrew/plc** team](https://github.com/orgs/Homebrew/teams/plc/members)
 - Invite them to [Google Analytics](https://analytics.google.com/analytics/web/#management/Settings/a76679469w115400090p120682403/%3Fm.page%3DAccountUsers/).

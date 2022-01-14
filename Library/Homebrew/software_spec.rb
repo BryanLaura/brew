@@ -323,6 +323,8 @@ class Bottle
     @resource.version = formula.pkg_version
     @resource.checksum = tag_spec.checksum
 
+    @fetch_tab_retried = false
+
     root_url(spec.root_url, spec.root_url_specs)
   end
 
@@ -338,6 +340,7 @@ class Bottle
   def clear_cache
     @resource.clear_cache
     github_packages_manifest_resource&.clear_cache
+    @fetch_tab_retried = false
   end
 
   def compatible_locations?
@@ -360,23 +363,31 @@ class Bottle
     github_packages_manifest_resource.fetch(verify_download_integrity: false)
 
     begin
-      JSON.parse(github_packages_manifest_resource.cached_download.read)
-    rescue JSON::ParserError
-      raise DownloadError.new(
-        github_packages_manifest_resource,
-        RuntimeError.new("The downloaded GitHub Packages manifest was corrupted or modified (it is not valid JSON):"\
-                         "\n#{github_packages_manifest_resource.cached_download}"),
-      )
+      github_packages_manifest_resource_tab(github_packages_manifest_resource)
+    rescue RuntimeError => e
+      raise DownloadError.new(github_packages_manifest_resource, e)
     end
   rescue DownloadError
     raise unless fallback_on_error
 
+    retry
+  rescue ArgumentError
+    raise if @fetch_tab_retried
+
+    @fetch_tab_retried = true
+    github_packages_manifest_resource.clear_cache
     retry
   end
 
   def tab_attributes
     return {} unless github_packages_manifest_resource&.downloaded?
 
+    github_packages_manifest_resource_tab(github_packages_manifest_resource)
+  end
+
+  private
+
+  def github_packages_manifest_resource_tab(github_packages_manifest_resource)
     manifest_json = github_packages_manifest_resource.cached_download.read
 
     json = begin
@@ -410,8 +421,6 @@ class Bottle
       raise ArgumentError, "Couldn't parse tab JSON."
     end
   end
-
-  private
 
   def github_packages_manifest_resource
     return if @resource.download_strategy != CurlGitHubPackagesDownloadStrategy
@@ -495,13 +504,6 @@ class BottleSpecification
     end
   end
 
-  def cellar(_val = nil)
-    odisabled(
-      "`cellar` in a bottle block",
-      "`brew style --fix` on the formula to update the style or use `sha256` with a `cellar:` argument",
-    )
-  end
-
   sig { params(tag: Utils::Bottles::Tag).returns(T::Boolean) }
   def compatible_locations?(tag: Utils::Bottles.tag)
     spec = collector.specification_for(tag)
@@ -548,22 +550,7 @@ class BottleSpecification
       key.is_a?(Symbol) && value.is_a?(String) && value.match?(sha256_regex)
     end
 
-    if digest && tag
-      # the cellar hash key only exists on the new format
-      cellar = hash[:cellar]
-    else
-      # otherwise, find old `sha256 "69489ae397e4645..." => :big_sur` format
-      digest, tag = hash.find do |key, value|
-        key.is_a?(String) && value.is_a?(Symbol) && key.match?(sha256_regex)
-      end
-
-      if digest && tag
-        odisabled(
-          '`sha256 "digest" => :tag` in a bottle block',
-          '`brew style --fix` on the formula to update the style or use `sha256 tag: "digest"`',
-        )
-      end
-    end
+    cellar = hash[:cellar] if digest && tag
 
     tag = Utils::Bottles::Tag.from_symbol(tag)
 

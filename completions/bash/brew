@@ -92,7 +92,7 @@ __brew_complete_tapped() {
   for dir in "${taplib}"/*/*
   do
     [[ -d "${dir}" ]] || continue
-    dir="${dir#${taplib}/}"
+    dir="${dir#"${taplib}"/}"
     dir="${dir/homebrew-/}"
     taps="${taps} ${dir}"
   done
@@ -270,6 +270,7 @@ _brew__s() {
   case "${cur}" in
     -*)
       __brewcomp "
+      --archlinux
       --cask
       --closed
       --debian
@@ -435,7 +436,9 @@ _brew_bump() {
       --help
       --limit
       --no-pull-requests
+      --open-pr
       --quiet
+      --start-with
       --verbose
       "
       return
@@ -468,7 +471,7 @@ _brew_bump_cask_pr() {
       --url
       --verbose
       --version
-      --write
+      --write-only
       "
       return
       ;;
@@ -521,6 +524,7 @@ _brew_bump_revision() {
       --help
       --message
       --quiet
+      --remove-bottle-block
       --verbose
       --write-only
       "
@@ -705,9 +709,11 @@ _brew_deps() {
       --annotate
       --cask
       --debug
+      --dot
       --for-each
       --formula
       --full-name
+      --graph
       --help
       --include-build
       --include-optional
@@ -780,6 +786,7 @@ _brew_dispatch_build_bottle() {
       --macos
       --quiet
       --tap
+      --timeout
       --upload
       --verbose
       --workflow
@@ -838,6 +845,7 @@ _brew_edit() {
       --debug
       --formula
       --help
+      --print-path
       --quiet
       --verbose
       "
@@ -1057,7 +1065,6 @@ _brew_instal() {
       --debug
       --dictionarydir
       --display-times
-      --env
       --fetch-HEAD
       --fontdir
       --force
@@ -1076,6 +1083,7 @@ _brew_instal() {
       --no-binaries
       --no-quarantine
       --only-dependencies
+      --overwrite
       --prefpanedir
       --qlplugindir
       --quarantine
@@ -1114,7 +1122,6 @@ _brew_install() {
       --debug
       --dictionarydir
       --display-times
-      --env
       --fetch-HEAD
       --fontdir
       --force
@@ -1133,6 +1140,7 @@ _brew_install() {
       --no-binaries
       --no-quarantine
       --only-dependencies
+      --overwrite
       --prefpanedir
       --qlplugindir
       --quarantine
@@ -1263,6 +1271,7 @@ _brew_linkage() {
       --help
       --quiet
       --reverse
+      --strict
       --test
       --verbose
       "
@@ -1401,23 +1410,6 @@ _brew_ls() {
   __brew_complete_installed_casks
 }
 
-_brew_man() {
-  local cur="${COMP_WORDS[COMP_CWORD]}"
-  case "${cur}" in
-    -*)
-      __brewcomp "
-      --debug
-      --fail-if-not-changed
-      --help
-      --quiet
-      --verbose
-      "
-      return
-      ;;
-    *)
-  esac
-}
-
 _brew_migrate() {
   local cur="${COMP_WORDS[COMP_CWORD]}"
   case "${cur}" in
@@ -1540,7 +1532,6 @@ _brew_pr_automerge() {
   case "${cur}" in
     -*)
       __brewcomp "
-      --autosquash
       --debug
       --help
       --ignore-failures
@@ -1564,7 +1555,6 @@ _brew_pr_publish() {
   case "${cur}" in
     -*)
       __brewcomp "
-      --autosquash
       --branch
       --debug
       --help
@@ -1622,13 +1612,13 @@ _brew_pr_upload() {
       --committer
       --debug
       --dry-run
-      --github-org
       --help
       --keep-old
       --no-commit
       --quiet
       --root-url
       --root-url-using
+      --upload-only
       --verbose
       --warn-on-upload-failure
       "
@@ -1811,6 +1801,7 @@ _brew_search() {
   case "${cur}" in
     -*)
       __brewcomp "
+      --archlinux
       --cask
       --closed
       --debian
@@ -1905,12 +1896,10 @@ _brew_tap() {
       --custom-remote
       --debug
       --force-auto-update
-      --full
       --help
       --list-pinned
       --quiet
       --repair
-      --shallow
       --verbose
       "
       return
@@ -1946,6 +1935,7 @@ _brew_tap_new() {
       __brewcomp "
       --branch
       --debug
+      --github-packages
       --help
       --no-git
       --pull-label
@@ -2500,7 +2490,6 @@ _brew() {
     ln) _brew_ln ;;
     log) _brew_log ;;
     ls) _brew_ls ;;
-    man) _brew_man ;;
     migrate) _brew_migrate ;;
     missing) _brew_missing ;;
     options) _brew_options ;;

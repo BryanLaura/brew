@@ -60,6 +60,19 @@ class KegOnlyReason
       @reason
     end.strip
   end
+
+  def to_hash
+    reason_string = if @reason.is_a?(Symbol)
+      @reason.inspect
+    else
+      @reason.to_s
+    end
+
+    {
+      "reason"      => reason_string,
+      "explanation" => @explanation,
+    }
+  end
 end
 
 # Used to annotate formulae that don't require compiling or cannot build a bottle.
@@ -69,9 +82,7 @@ class BottleDisableReason
   def initialize(type, reason)
     @type = type
     @reason = reason
-    # TODO: 3.3.0: deprecate this behaviour as it was only needed for
-    # Homebrew/core (where we don't want unneeded or disabled bottles any more)
-    # odeprecated "bottle :#{@type}" if valid?
+    odeprecated "bottle :#{@type}" if valid?
   end
 
   def unneeded?

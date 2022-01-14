@@ -3,7 +3,6 @@
 
 require "os/mac/version"
 require "os/mac/xcode"
-require "os/mac/xquartz"
 require "os/mac/sdk"
 require "os/mac/keg"
 
@@ -46,7 +45,7 @@ module OS
     def latest_sdk_version
       # TODO: bump version when new Xcode macOS SDK is released
       # NOTE: We only track the major version of the SDK.
-      ::Version.new("11")
+      ::Version.new("12")
     end
     private :latest_sdk_version
 

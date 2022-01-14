@@ -6,23 +6,31 @@
 # Doesn't need a default case because we don't support other OSs
 # shellcheck disable=SC2249
 HOMEBREW_PROCESSOR="$(uname -m)"
+HOMEBREW_PHYSICAL_PROCESSOR="${HOMEBREW_PROCESSOR}"
 HOMEBREW_SYSTEM="$(uname -s)"
 case "${HOMEBREW_SYSTEM}" in
   Darwin) HOMEBREW_MACOS="1" ;;
   Linux) HOMEBREW_LINUX="1" ;;
 esac
 
-# If we're running under macOS Rosetta 2, and it was requested by setting
-# HOMEBREW_CHANGE_ARCH_TO_ARM (for example in CI), then we re-exec this
-# same file under the native architecture
-# These variables are set from the user environment.
-# shellcheck disable=SC2154
-if [[ "${HOMEBREW_CHANGE_ARCH_TO_ARM}" == "1" ]] &&
-   [[ "${HOMEBREW_MACOS}" == "1" ]] &&
-   [[ "$(sysctl -n hw.optional.arm64 2>/dev/null)" == "1" ]] &&
-   [[ "$(sysctl -n sysctl.proc_translated 2>/dev/null)" == "1" ]]
+if [[ "${HOMEBREW_MACOS}" == "1" ]] &&
+   [[ "$(sysctl -n hw.optional.arm64 2>/dev/null)" == "1" ]]
 then
-  exec arch -arm64e "${HOMEBREW_BREW_FILE}" "$@"
+  # used in vendor-install.sh
+  # shellcheck disable=SC2034
+  HOMEBREW_PHYSICAL_PROCESSOR="arm64"
+  HOMEBREW_ROSETTA="$(sysctl -n sysctl.proc_translated)"
+
+  # If we're running under macOS Rosetta 2, and it was requested by setting
+  # HOMEBREW_CHANGE_ARCH_TO_ARM (for example in CI), then we re-exec this
+  # same file under the native architecture
+  # These variables are set from the user environment.
+  # shellcheck disable=SC2154
+  if [[ "${HOMEBREW_CHANGE_ARCH_TO_ARM}" == "1" ]] &&
+     [[ "${HOMEBREW_ROSETTA}" == "1" ]]
+  then
+    exec arch -arm64e "${HOMEBREW_BREW_FILE}" "$@"
+  fi
 fi
 
 # Where we store built products; a Cellar in HOMEBREW_PREFIX (often /usr/local
@@ -222,7 +230,16 @@ EOS
 # exceeds 3 seconds.
 update-preinstall-timer() {
   sleep 3
-  echo 'Updating Homebrew...' >&2
+  # Outputting a command but don't want to run it, hence single quotes.
+  # shellcheck disable=SC2016
+  echo 'Running `brew update --preinstall`...' >&2
+  if [[ -z "${HOMEBREW_NO_ENV_HINTS}" && -z "${HOMEBREW_AUTO_UPDATE_SECS}" ]]
+  then
+    # shellcheck disable=SC2016
+    echo 'Adjust how often this is run with HOMEBREW_AUTO_UPDATE_SECS or disable with' >&2
+    # shellcheck disable=SC2016
+    echo 'HOMEBREW_NO_AUTO_UPDATE. Hide these hints with HOMEBREW_NO_ENV_HINTS (see `man brew`).' >&2
+  fi
 }
 
 # These variables are set from various Homebrew scripts.
@@ -351,10 +368,11 @@ export HOMEBREW_COMMAND_DEPTH="$((HOMEBREW_COMMAND_DEPTH + 1))"
 setup_curl() {
   # This is set by the user environment.
   # shellcheck disable=SC2154
-  if [[ -n "${HOMEBREW_FORCE_BREWED_CURL}" && -x "${HOMEBREW_PREFIX}/opt/curl/bin/curl" ]] &&
-     "${HOMEBREW_PREFIX}/opt/curl/bin/curl" --version &>/dev/null
+  HOMEBREW_BREWED_CURL_PATH="${HOMEBREW_PREFIX}/opt/curl/bin/curl"
+  if [[ -n "${HOMEBREW_FORCE_BREWED_CURL}" && -x "${HOMEBREW_BREWED_CURL_PATH}" ]] &&
+     "${HOMEBREW_BREWED_CURL_PATH}" --version &>/dev/null
   then
-    HOMEBREW_CURL="${HOMEBREW_PREFIX}/opt/curl/bin/curl"
+    HOMEBREW_CURL="${HOMEBREW_BREWED_CURL_PATH}"
   elif [[ -n "${HOMEBREW_DEVELOPER}" && -x "${HOMEBREW_CURL_PATH}" ]]
   then
     HOMEBREW_CURL="${HOMEBREW_CURL_PATH}"
@@ -401,12 +419,6 @@ case "$*" in
     exit 0
     ;;
 esac
-
-# shellcheck disable=SC2154
-if [[ -n "${HOMEBREW_SIMULATE_MACOS_ON_LINUX}" ]]
-then
-  export HOMEBREW_FORCE_HOMEBREW_ON_LINUX="1"
-fi
 
 if [[ -n "${HOMEBREW_MACOS}" ]]
 then
@@ -463,9 +475,7 @@ then
 
   # Set a variable when the macOS system Ruby is new enough to avoid spawning
   # a Ruby process unnecessarily.
-  # On Catalina the system Ruby is technically new enough but don't allow it:
-  # https://github.com/Homebrew/brew/issues/9410
-  if [[ "${HOMEBREW_MACOS_VERSION_NUMERIC}" -lt "101600" ]]
+  if [[ "${HOMEBREW_MACOS_VERSION_NUMERIC}" -lt "120000" ]]
   then
     unset HOMEBREW_MACOS_SYSTEM_RUBY_NEW_ENOUGH
   else
@@ -475,7 +485,7 @@ then
   fi
 else
   HOMEBREW_PRODUCT="${HOMEBREW_SYSTEM}brew"
-  [[ -n "${HOMEBREW_LINUX}" ]] && HOMEBREW_OS_VERSION="$(lsb_release -sd 2>/dev/null)"
+  [[ -n "${HOMEBREW_LINUX}" ]] && HOMEBREW_OS_VERSION="$(lsb_release -s -d 2>/dev/null)"
   : "${HOMEBREW_OS_VERSION:=$(uname -r)}"
   HOMEBREW_OS_USER_AGENT_VERSION="${HOMEBREW_OS_VERSION}"
 
@@ -544,27 +554,11 @@ Your Git executable: $(unset git && type -p ${HOMEBREW_GIT})"
   unset HOMEBREW_MACOS_SYSTEM_RUBY_NEW_ENOUGH
 
   HOMEBREW_CORE_REPOSITORY_ORIGIN="$("${HOMEBREW_GIT}" -C "${HOMEBREW_CORE_REPOSITORY}" remote get-url origin 2>/dev/null)"
-  if [[ "${HOMEBREW_CORE_REPOSITORY_ORIGIN}" == "https://github.com/Homebrew/homebrew-core" ]]
+  if [[ "${HOMEBREW_CORE_REPOSITORY_ORIGIN}" =~ (/linuxbrew|Linuxbrew/homebrew)-core(\.git)?$ ]]
   then
-    # TODO: this variable can go away when we're migrating everyone to homebrew-core.
-    HOMEBREW_CORE_ON_LINUX=1
-  # Migrate from linuxbrew-core to homebrew-core:
-  # - if either HOMEBREW_FORCE_HOMEBREW_ON_LINUX or HOMEBREW_FORCE_HOMEBREW_CORE_REPO_ON_LINUX are set
-  # - unless HOMEBREW_LINUXCORE_MERGE is set (by maintainers who still merge homebrew-core into linuxbrew-core)
-  # - only HOMEBREW_DEVELOPER users (for now)
-  # - not on GitHub Actions (for now)
-  elif [[ -n "${HOMEBREW_FORCE_HOMEBREW_ON_LINUX}" ||
-          -n "${HOMEBREW_FORCE_HOMEBREW_CORE_REPO_ON_LINUX}" ]] ||
-       [[ -n "${HOMEBREW_DEVELOPER}" ]] &&
-       [[ -z "${HOMEBREW_LINUXCORE_MERGE}" ]] &&
-       [[ -z "${GITHUB_ACTIONS}" ]]
-  then
-    # TODO: this variable can go away when we're migrating everyone to homebrew-core.
-    HOMEBREW_CORE_ON_LINUX=1
-
     # triggers migration code in update.sh
     # shellcheck disable=SC2034
-    HOMEBREW_LINUXBREW_MIGRATION=1
+    HOMEBREW_LINUXBREW_CORE_MIGRATION=1
   fi
 fi
 
@@ -573,6 +567,7 @@ setup_ca_certificates() {
   then
     export SSL_CERT_FILE="${HOMEBREW_PREFIX}/etc/ca-certificates/cert.pem"
     export GIT_SSL_CAINFO="${HOMEBREW_PREFIX}/etc/ca-certificates/cert.pem"
+    export GIT_SSL_CAPATH="${HOMEBREW_PREFIX}/etc/ca-certificates"
   fi
 }
 setup_ca_certificates
@@ -595,13 +590,7 @@ then
   unset HOMEBREW_BOTTLE_DOMAIN
 fi
 
-if [[ -n "${HOMEBREW_MACOS}" ]] ||
-   [[ -n "${HOMEBREW_CORE_ON_LINUX}" ]]
-then
-  HOMEBREW_BOTTLE_DEFAULT_DOMAIN="https://ghcr.io/v2/homebrew/core"
-else
-  HOMEBREW_BOTTLE_DEFAULT_DOMAIN="https://ghcr.io/v2/linuxbrew/core"
-fi
+HOMEBREW_BOTTLE_DEFAULT_DOMAIN="https://ghcr.io/v2/homebrew/core"
 
 HOMEBREW_USER_AGENT="${HOMEBREW_PRODUCT}/${HOMEBREW_USER_AGENT_VERSION} (${HOMEBREW_SYSTEM}; ${HOMEBREW_PROCESSOR} ${HOMEBREW_OS_USER_AGENT_VERSION})"
 curl_version_output="$(curl --version 2>/dev/null)"
@@ -619,6 +608,7 @@ export HOMEBREW_CELLAR
 export HOMEBREW_SYSTEM
 export HOMEBREW_SYSTEM_CA_CERTIFICATES_TOO_OLD
 export HOMEBREW_CURL
+export HOMEBREW_BREWED_CURL_PATH
 export HOMEBREW_CURL_WARNING
 export HOMEBREW_SYSTEM_CURL_TOO_OLD
 export HOMEBREW_GIT
@@ -736,40 +726,68 @@ then
 fi
 export HOMEBREW_BREW_GIT_REMOTE
 
-if [[ -n "${HOMEBREW_MACOS}" ]] ||
-   [[ -n "${HOMEBREW_CORE_ON_LINUX}" ]]
-then
-  HOMEBREW_CORE_DEFAULT_GIT_REMOTE="https://github.com/Homebrew/homebrew-core"
-else
-  HOMEBREW_CORE_DEFAULT_GIT_REMOTE="https://github.com/Homebrew/linuxbrew-core"
-fi
-export HOMEBREW_CORE_DEFAULT_GIT_REMOTE
-
+HOMEBREW_CORE_DEFAULT_GIT_REMOTE="https://github.com/Homebrew/homebrew-core"
 if [[ -z "${HOMEBREW_CORE_GIT_REMOTE}" ]]
 then
   HOMEBREW_CORE_GIT_REMOTE="${HOMEBREW_CORE_DEFAULT_GIT_REMOTE}"
 fi
 export HOMEBREW_CORE_GIT_REMOTE
 
+# Set HOMEBREW_DEVELOPER_COMMAND if the command being run is a developer command
+if [[ -f "${HOMEBREW_LIBRARY}/Homebrew/dev-cmd/${HOMEBREW_COMMAND}.sh" ]] ||
+   [[ -f "${HOMEBREW_LIBRARY}/Homebrew/dev-cmd/${HOMEBREW_COMMAND}.rb" ]]
+then
+  export HOMEBREW_DEVELOPER_COMMAND="1"
+fi
+
+# Set HOMEBREW_DEVELOPER_MODE if this command will turn (or keep) developer mode on. This is the case if:
+# - The command being run is not `brew developer off`
+# - Any of the following are true
+#   - HOMEBREW_DEVELOPER is set
+#   - HOMEBREW_DEV_CMD_RUN is set
+#   - A developer command is being run
+#   - The command being run is `brew developer on`
+if [[ "${HOMEBREW_COMMAND}" != "developer" || ! $* =~ "off" ]] &&
+   [[ -n "${HOMEBREW_DEVELOPER}" ||
+      -n "${HOMEBREW_DEV_CMD_RUN}" ||
+      -n "${HOMEBREW_DEVELOPER_COMMAND}" ||
+      "${HOMEBREW_COMMAND}" == "developer" && $* =~ "on" ]]
+then
+  export HOMEBREW_DEVELOPER_MODE="1"
+fi
+
+if [[ -n "${HOMEBREW_INSTALL_FROM_API}" && -n "${HOMEBREW_DEVELOPER_COMMAND}" ]]
+then
+  odie "Developer commands cannot be run while HOMEBREW_INSTALL_FROM_API is set!"
+elif [[ -n "${HOMEBREW_INSTALL_FROM_API}" && -n "${HOMEBREW_DEVELOPER_MODE}" ]]
+then
+  message="Developers should not have HOMEBREW_INSTALL_FROM_API set!
+Please unset HOMEBREW_INSTALL_FROM_API or turn developer mode off by running:
+  brew developer off
+"
+  opoo "${message}"
+fi
+
+if [[ -n "${HOMEBREW_DEVELOPER_COMMAND}" && -z "${HOMEBREW_DEVELOPER}" ]]
+then
+  if [[ -z "${HOMEBREW_DEV_CMD_RUN}" ]]
+  then
+    message="$(bold "${HOMEBREW_COMMAND}") is a developer command, so
+Homebrew's developer mode has been automatically turned on.
+To turn developer mode off, run $(bold "brew developer off")
+"
+    opoo "${message}"
+  fi
+
+  git config --file="${HOMEBREW_GIT_CONFIG_FILE}" --replace-all homebrew.devcmdrun true 2>/dev/null
+  export HOMEBREW_DEV_CMD_RUN="1"
+fi
+
 if [[ -f "${HOMEBREW_LIBRARY}/Homebrew/cmd/${HOMEBREW_COMMAND}.sh" ]]
 then
   HOMEBREW_BASH_COMMAND="${HOMEBREW_LIBRARY}/Homebrew/cmd/${HOMEBREW_COMMAND}.sh"
 elif [[ -f "${HOMEBREW_LIBRARY}/Homebrew/dev-cmd/${HOMEBREW_COMMAND}.sh" ]]
 then
-  if [[ -z "${HOMEBREW_DEVELOPER}" ]]
-  then
-    if [[ -z "${HOMEBREW_DEV_CMD_RUN}" ]]
-    then
-      message="$(bold "${HOMEBREW_COMMAND}") is a developer command, so
-Homebrew's developer mode has been automatically turned on.
-To turn developer mode off, run $(bold "brew developer off")
-"
-      opoo "${message}"
-    fi
-
-    git config --file="${HOMEBREW_GIT_CONFIG_FILE}" --replace-all homebrew.devcmdrun true 2>/dev/null
-    export HOMEBREW_DEV_CMD_RUN="1"
-  fi
   HOMEBREW_BASH_COMMAND="${HOMEBREW_LIBRARY}/Homebrew/dev-cmd/${HOMEBREW_COMMAND}.sh"
 fi
 
@@ -793,6 +811,12 @@ fi
 
 source "${HOMEBREW_LIBRARY}/Homebrew/utils/analytics.sh"
 setup-analytics
+
+# Use this configuration file instead of ~/.ssh/config when fetching git over SSH.
+if [[ -n "${HOMEBREW_SSH_CONFIG_PATH}" ]]
+then
+  export GIT_SSH_COMMAND="ssh -F${HOMEBREW_SSH_CONFIG_PATH}"
+fi
 
 if [[ -n "${HOMEBREW_BASH_COMMAND}" ]]
 then

@@ -84,7 +84,7 @@ jobs:
       - name: Run brew readall on all taps
         run: brew readall --aliases
 
-      - name: Run brew style on linuxbrew-core
+      - name: Run brew style on homebrew-core for Linux
         run: brew style --display-cop-names homebrew/core
 
       - name: Run brew audit --skip-style on all taps
@@ -116,12 +116,12 @@ jobs:
           # brew style doesn't like world writable directories
           sudo chmod -R g-w,o-w "${HOMEBREW_REPOSITORY}/Library/Taps"
 
-      - name: Run brew style on homebrew-core
+      - name: Run brew style on homebrew-core for macOS
         run: brew style --display-cop-names homebrew/core
         env:
           HOMEBREW_SIMULATE_MACOS_ON_LINUX: 1
 
-      - name: Run brew audit --skip-style on homebrew-core
+      - name: Run brew audit --skip-style on homebrew-core for macOS
         run: brew audit --skip-style --except=version --tap=homebrew/core
         env:
           HOMEBREW_SIMULATE_MACOS_ON_LINUX: 1
@@ -228,6 +228,9 @@ jobs:
           key: ${{ runner.os }}-${{ matrix.test-flags }}-parallel_runtime_rspec-${{ github.sha }}
           restore-keys: ${{ runner.os }}-${{ matrix.test-flags }}-parallel_runtime_rspec-
 
+      - name: Install brew tests dependencies
+        run: brew install curl
+
       - name: Run brew tests
         run: |
           # brew tests doesn't like world writable directories
@@ -238,6 +241,8 @@ jobs:
           HOMEBREW_GITHUB_API_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - uses: codecov/codecov-action@f32b3a3741e1053eb607407145bc9619351dc93b
+        with:
+          files: Library/Homebrew/test/coverage/coverage.xml
 
   test-default-formula-linux:
     name: test default formula (Linux)
@@ -264,9 +269,6 @@ jobs:
       - name: Set up Homebrew
         id: set-up-homebrew
         uses: Homebrew/actions/setup-homebrew@master
-
-      - name: Set up Xcode
-        run: sudo xcode-select --switch /Applications/Xcode_12.2.app/Contents/Developer
 
       - run: brew test-bot --only-cleanup-before
 
@@ -304,11 +306,7 @@ jobs:
         run: brew readall --aliases
 
       - name: Install brew tests dependencies
-        run: |
-          brew install subversion
-          brew sh -c "svn --homebrew=print-path"
-          which svn
-          which svnadmin
+        run: brew install subversion curl
 
       - name: Create parallel test log directory
         run: mkdir tests
@@ -344,3 +342,5 @@ jobs:
       - run: brew test-bot --only-formulae --test-default-formula
 
       - uses: codecov/codecov-action@f32b3a3741e1053eb607407145bc9619351dc93b
+        with:
+          files: Library/Homebrew/test/coverage/coverage.xml

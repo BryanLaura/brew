@@ -21,15 +21,15 @@ module Homebrew
              description: "Pull requests must have this label."
       comma_array "--without-labels",
                   description: "Pull requests must not have these labels (default: "\
-                               "`do not merge`, `new formula`, `automerge-skip`, "\
-                               "`linux to homebrew-core`)."
+                               "`do not merge`, `new formula`, `automerge-skip`)."
       switch "--without-approval",
              description: "Pull requests do not require approval to be merged."
       switch "--publish",
              description: "Run `brew pr-publish` on matching pull requests."
       switch "--autosquash",
              description: "Instruct `brew pr-publish` to automatically reformat and reword commits "\
-                          "in the pull request to our preferred format."
+                          "in the pull request to our preferred format.",
+             replacement: "`--no-autosquash` to opt out"
       switch "--no-autosquash",
              description: "Instruct `brew pr-publish` to skip automatically reformatting and rewording commits "\
                           "in the pull request to the preferred format."
@@ -43,13 +43,10 @@ module Homebrew
   def pr_automerge
     args = pr_automerge_args.parse
 
-    odeprecated "`brew pr-automerge --autosquash`", "`brew pr-automerge`" if args.autosquash?
-
     without_labels = args.without_labels || [
       "do not merge",
       "new formula",
       "automerge-skip",
-      "linux to homebrew-core",
     ]
     tap = Tap.fetch(args.tap || CoreTap.instance.name)
 

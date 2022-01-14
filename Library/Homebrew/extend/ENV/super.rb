@@ -20,7 +20,7 @@ module Superenv
   include SharedEnvExtension
 
   # @private
-  attr_accessor :keg_only_deps, :deps, :run_time_deps, :x11
+  attr_accessor :keg_only_deps, :deps, :run_time_deps
 
   sig { params(base: Superenv).void }
   def self.extended(base)
@@ -30,7 +30,6 @@ module Superenv
   end
 
   # The location of Homebrew's shims on this OS.
-  # @public
   sig { returns(Pathname) }
   def self.shims_path
     HOMEBREW_SHIMS_PATH/"super"
@@ -168,17 +167,11 @@ module Superenv
     ).existing
   end
 
-  sig { returns(T::Array[Pathname]) }
-  def homebrew_extra_aclocal_paths
-    []
-  end
-
   sig { returns(T.nilable(PATH)) }
   def determine_aclocal_path
     PATH.new(
       keg_only_deps.map { |d| d.opt_share/"aclocal" },
       HOMEBREW_PREFIX/"share/aclocal",
-      homebrew_extra_aclocal_paths,
     ).existing
   end
 

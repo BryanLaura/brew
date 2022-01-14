@@ -27,8 +27,14 @@ module Homebrew
         Install a <formula> or <cask>. Additional options specific to a <formula> may be
         appended to the command.
 
+        Unless `HOMEBREW_NO_INSTALLED_DEPENDENTS_CHECK` is set, `brew upgrade` or `brew reinstall` will be run for
+        outdated dependents and dependents with broken linkage, respectively.
+
         Unless `HOMEBREW_NO_INSTALL_CLEANUP` is set, `brew cleanup` will then be run for
         the installed formulae or, every 30 days, for all formulae.
+
+        Unless `HOMEBREW_NO_INSTALL_UPGRADE` is set, `brew install <formula>` will upgrade <formula> if it
+        is already installed but outdated.
       EOS
       switch "-d", "--debug",
              description: "If brewing fails, open an interactive debugging session with access to IRB " \
@@ -45,6 +51,7 @@ module Homebrew
         }],
         [:flag, "--env=", {
           description: "Disabled other than for internal Homebrew use.",
+          hidden:      true,
         }],
         [:switch, "--ignore-dependencies", {
           description: "An unsupported Homebrew development flag to skip installing any dependencies of any kind. " \
@@ -105,6 +112,9 @@ module Homebrew
         [:switch, "-g", "--git", {
           description: "Create a Git repository, useful for creating patches to the software.",
         }],
+        [:switch, "--overwrite", {
+          description: "Delete files that already exist in the prefix while linking.",
+        }],
       ].each do |*args, **options|
         send(*args, **options)
         conflicts "--cask", args.last
@@ -139,9 +149,11 @@ module Homebrew
 
     args.named.each do |name|
       next if File.exist?(name)
-      next if name !~ HOMEBREW_TAP_FORMULA_REGEX && name !~ HOMEBREW_CASK_TAP_CASK_REGEX
+      next unless name =~ HOMEBREW_TAP_FORMULA_REGEX
 
       tap = Tap.fetch(Regexp.last_match(1), Regexp.last_match(2))
+      next if (tap.core_tap? || tap == "homebrew/cask") && EnvConfig.install_from_api?
+
       tap.install unless tap.installed?
     end
 
@@ -217,6 +229,7 @@ module Homebrew
       interactive:                args.interactive?,
       keep_tmp:                   args.keep_tmp?,
       force:                      args.force?,
+      overwrite:                  args.overwrite?,
       debug:                      args.debug?,
       quiet:                      args.quiet?,
       verbose:                    args.verbose?,

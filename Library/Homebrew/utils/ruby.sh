@@ -1,4 +1,4 @@
-export HOMEBREW_REQUIRED_RUBY_VERSION=2.6.3
+export HOMEBREW_REQUIRED_RUBY_VERSION=2.6.8
 
 # HOMEBREW_LIBRARY is from the user environment
 # shellcheck disable=SC2154
@@ -31,7 +31,7 @@ find_ruby() {
       fi
     done < <(
       # function which() is set by brew.sh
-      # it's aliased to `type -P`
+      # it is aliased to `type -P`
       # shellcheck disable=SC2230
       which -a ruby
       # shellcheck disable=SC2230

@@ -51,13 +51,15 @@ module Homebrew
           params(
             content: String,
             regex:   T.nilable(Regexp),
-            block:   T.nilable(
-              T.proc.params(arg0: String, arg1: T.nilable(Regexp)).returns(T.any(String, T::Array[String], NilClass)),
-            ),
+            block:   T.untyped,
           ).returns(T::Array[String])
         }
         def self.versions_from_content(content, regex, &block)
-          return Strategy.handle_block_return(block.call(content, regex)) if block
+          if block
+            block_return_value = regex.present? ? yield(content, regex) : yield(content)
+            return Strategy.handle_block_return(block_return_value)
+          end
+
           return [] if regex.blank?
 
           content.scan(regex).map do |match|
@@ -77,19 +79,23 @@ module Homebrew
         # @param regex [Regexp, nil] a regex used for matching versions
         # @param provided_content [String, nil] page content to use in place of
         #   fetching via Strategy#page_content
+        # @param homebrew_curl [Boolean] whether to use brewed curl with the URL
         # @return [Hash]
         sig {
           params(
             url:              String,
             regex:            T.nilable(Regexp),
             provided_content: T.nilable(String),
+            homebrew_curl:    T::Boolean,
             _unused:          T.nilable(T::Hash[Symbol, T.untyped]),
-            block:            T.nilable(
-              T.proc.params(arg0: String, arg1: T.nilable(Regexp)).returns(T.any(String, T::Array[String], NilClass)),
-            ),
+            block:            T.untyped,
           ).returns(T::Hash[Symbol, T.untyped])
         }
-        def self.find_versions(url:, regex: nil, provided_content: nil, **_unused, &block)
+        def self.find_versions(url:, regex: nil, provided_content: nil, homebrew_curl: false, **_unused, &block)
+          if regex.blank? && block.blank?
+            raise ArgumentError, "#{T.must(name).demodulize} requires a regex or `strategy` block"
+          end
+
           match_data = { matches: {}, regex: regex, url: url }
           return match_data if url.blank? || (regex.blank? && block.blank?)
 
@@ -97,7 +103,7 @@ module Homebrew
             match_data[:cached] = true
             provided_content
           else
-            match_data.merge!(Strategy.page_content(url))
+            match_data.merge!(Strategy.page_content(url, homebrew_curl: homebrew_curl))
             match_data[:content]
           end
           return match_data if content.blank?

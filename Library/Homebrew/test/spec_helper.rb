@@ -169,6 +169,13 @@ RSpec.configure do |config|
                       .append(svnadmin.dirname)
   end
 
+  config.before(:each, :needs_homebrew_curl) do
+    ENV["HOMEBREW_CURL"] = ENV["HOMEBREW_BREWED_CURL_PATH"]
+    skip "A `curl` with TLS 1.3 support is required." unless curl_supports_tls13?
+  rescue FormulaUnavailableError
+    skip "No `curl` formula is available."
+  end
+
   config.before(:each, :needs_unzip) do
     skip "Unzip is not installed." unless which("unzip")
   end
@@ -195,6 +202,7 @@ RSpec.configure do |config|
     Requirement.clear_cache
     FormulaInstaller.clear_attempted
     FormulaInstaller.clear_installed
+    FormulaInstaller.clear_fetched
 
     TEST_DIRECTORIES.each(&:mkpath)
 

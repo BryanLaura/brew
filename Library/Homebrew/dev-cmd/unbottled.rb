@@ -79,9 +79,9 @@ module Homebrew
     if args.named.present?
       formulae = all_formulae = args.named.to_formulae
     elsif args.total?
-      formulae = all_formulae = Formula.to_a
+      formulae = all_formulae = Formula.all
     elsif args.dependents?
-      formulae = all_formulae = Formula.to_a
+      formulae = all_formulae = Formula.all
 
       @sort = " (sorted by number of dependents)"
     else
@@ -123,8 +123,6 @@ module Homebrew
     uses_hash = {}
 
     all_formulae.each do |f|
-      next unless f.core_formula?
-
       deps = f.recursive_dependencies do |_, dep|
         Dependency.prune if dep.optional?
       end.map(&:to_formula)

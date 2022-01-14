@@ -748,6 +748,8 @@ If the version depends on multiple header fields, a block can be specified, e.g.
 strategy :header_match do |headers|
   v = headers["content-disposition"][/MyApp-(\d+(?:\.\d+)*)\.zip/i, 1]
   id = headers["location"][%r{/(\d+)/download$}i, 1]
+  next if v.blank? || id.blank?
+  
   "#{v},#{id}"
 end
 ```
@@ -757,6 +759,8 @@ Similarly, the `:page_match` strategy can also be used for more complex versions
 ```ruby
 strategy :page_match do |page|
   match = page.match(%r{href=.*?/(\d+)/MyApp-(\d+(?:\.\d+)*)\.zip}i)
+  next if match.blank?
+  
   "#{match[2]},#{match[1]}"
 end
 ```
@@ -1095,7 +1099,7 @@ When a plain URL string is insufficient to fetch a file, additional information 
 
 | key                | value       |
 | ------------------ | ----------- |
-| `verified:`        | a string repeating the beginning of `url`, for verification purposes. [See below](#when-url-and-homepage-hostnames-differ-add-verified).
+| `verified:`        | a string repeating the beginning of `url`, for verification purposes. [See below](#when-url-and-homepage-domains-differ-add-verified).
 | `using:`           | the symbol `:post` is the only legal value
 | `cookies:`         | a hash of cookies to be set in the download request
 | `referer:`         | a string holding the URL to set as referer in the download request
@@ -1109,9 +1113,9 @@ Example of using `referer:`: [rrootage.rb](https://github.com/Homebrew/homebrew-
 
 Example of using `header:`: [issue-325182724](https://github.com/Homebrew/brew/pull/6545#issue-325182724)
 
-#### When URL and Homepage Hostnames Differ, Add `verified:`
+#### When URL and Homepage Domains Differ, Add `verified:`
 
-When the hostnames of `url` and `homepage` differ, the discrepancy should be documented with the `verified:` parameter, repeating the smallest possible portion of the URL that uniquely identifies the app or vendor, excluding the protocol. Example: [`shotcut.rb`](https://github.com/Homebrew/homebrew-cask/blob/08733296b49c59c58b6beeada59ed4207cef60c3/Casks/shotcut.rb#L5L6).
+When the domains of `url` and `homepage` differ, the discrepancy should be documented with the `verified:` parameter, repeating the smallest possible portion of the URL that uniquely identifies the app or vendor, excluding the protocol. Example: [`shotcut.rb`](https://github.com/Homebrew/homebrew-cask/blob/08733296b49c59c58b6beeada59ed4207cef60c3/Casks/shotcut.rb#L5L6).
 
 This must be added so a user auditing the cask knows the URL was verified by the Homebrew Cask team as the one provided by the vendor, even though it may look unofficial. It is our responsibility as Homebrew Cask maintainers to verify both the `url` and `homepage` information when first added (or subsequently modified, apart from versioning).
 
@@ -1264,7 +1268,7 @@ The examples above can become hard to read, however. Since many of these changes
 
 Similar to `dots_to_hyphens`, we provide all logical permutations of `{dots,hyphens,underscores}_to_{dots,hyphens,underscores}`. The same applies to `no_dots` in the form of `no_{dots,hyphens,underscores}`, with an extra `no_dividers` that applies all of those at once.
 
-Finally, there are `before_colon` and `after_colon` that act like their `comma` counterparts. These four are extra special to allow for otherwise complex cases, and should be used sparingly. There should be no more than one of `,` and `:` per `version`. Use `,` first, and `:` only if absolutely necessary.
+Finally, there is `csv` that returns an array of comma-separated values. `csv`, `before_comma` and `after_comma` are extra special to allow for otherwise complex cases, and should be used sparingly. There should be no more than two of `,` per `version`.
 
 ### Stanza: `zap`
 

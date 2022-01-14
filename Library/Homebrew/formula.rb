@@ -64,8 +64,7 @@ class Formula
   include Utils::Shebang
   include Utils::Shell
   include Context
-  include OnOS # TODO: 3.3.0: deprecate OnOS usage in instance methods.
-  extend Enumerable
+  include OnOS # TODO: 3.4.0: odeprecate OnOS usage in instance methods.
   extend Forwardable
   extend Cachable
   extend Predicable
@@ -262,7 +261,7 @@ class Formula
   end
 
   def spec_eval(name)
-    spec = self.class.send(name)
+    spec = self.class.send(name).dup
     return unless spec.url
 
     spec.owner = self
@@ -529,7 +528,7 @@ class Formula
   # exists and is not empty.
   # @private
   def latest_version_installed?
-    latest_prefix = if !head? && ENV["HOMEBREW_INSTALL_FROM_API"].present? &&
+    latest_prefix = if !head? && Homebrew::EnvConfig.install_from_api? &&
                        (latest_pkg_version = Homebrew::API::Versions.latest_formula_version(name))
       prefix latest_pkg_version
     else
@@ -1005,6 +1004,12 @@ class Formula
     opt_prefix/"#{service_name}.service"
   end
 
+  # The generated systemd {.timer} file path.
+  sig { returns(Pathname) }
+  def systemd_timer_path
+    opt_prefix/"#{service_name}.timer"
+  end
+
   # The service specification of the software.
   def service
     return unless service?
@@ -1349,7 +1354,7 @@ class Formula
     Formula.cache[:outdated_kegs][cache_key] ||= begin
       all_kegs = []
       current_version = T.let(false, T::Boolean)
-      latest_version = if !head? && ENV["HOMEBREW_INSTALL_FROM_API"].present? && (core_formula? || tap.blank?)
+      latest_version = if !head? && Homebrew::EnvConfig.install_from_api? && (core_formula? || tap.blank?)
         Homebrew::API::Versions.latest_formula_version(name) || pkg_version
       else
         pkg_version
@@ -1449,9 +1454,9 @@ class Formula
 
   # @private
   def ==(other)
-    instance_of?(other.class) &&
+    self.class == other.class &&
       name == other.name &&
-      active_spec == other.active_spec
+      active_spec_sym == other.active_spec_sym
   end
   alias eql? ==
 
@@ -1528,10 +1533,13 @@ class Formula
   end
 
   # Standard parameters for Go builds.
-  sig { params(ldflags: T.nilable(String)).returns(T::Array[String]) }
-  def std_go_args(ldflags: nil)
-    args = ["-trimpath", "-o=#{bin/name}"]
-    args += ["-ldflags=#{ldflags}"] if ldflags
+  sig {
+    params(output:  T.any(String, Pathname),
+           ldflags: T.nilable(T.any(String, T::Array[String]))).returns(T::Array[String])
+  }
+  def std_go_args(output: bin/name, ldflags: nil)
+    args = ["-trimpath", "-o=#{output}"]
+    args += ["-ldflags=#{Array(ldflags).join(" ")}"] if ldflags
     args
   end
 
@@ -1673,16 +1681,18 @@ class Formula
     @full_names ||= core_names + tap_names
   end
 
+  # an array of all {Formula}
   # @private
-  def self.each(&block)
-    files.each do |file|
-      block.call Formulary.factory(file)
+  def self.all
+    files.map do |file|
+      Formulary.factory(file)
     rescue FormulaUnavailableError, FormulaUnreadableError => e
       # Don't let one broken formula break commands. But do complain.
       onoe "Failed to import: #{file}"
       $stderr.puts e
-      next
-    end
+
+      nil
+    end.compact
   end
 
   # An array of all racks currently installed.
@@ -1933,6 +1943,7 @@ class Formula
       "version_scheme"           => version_scheme,
       "bottle"                   => {},
       "keg_only"                 => keg_only?,
+      "keg_only_reason"          => keg_only_reason&.to_hash,
       "bottle_disabled"          => bottle_disabled?,
       "options"                  => [],
       "build_dependencies"       => dependencies.select(&:build?)
@@ -2011,11 +2022,11 @@ class Formula
   def to_recursive_bottle_hash(top_level: true)
     bottle = bottle_hash
 
-    bottles = bottle["files"].map do |tag, file|
+    bottles = bottle["files"].to_h do |tag, file|
       info = { "url" => file["url"] }
       info["sha256"] = file["sha256"] if tap.name != "homebrew/core"
       [tag.to_s, info]
-    end.to_h
+    end
 
     hash = {
       "name"        => name,

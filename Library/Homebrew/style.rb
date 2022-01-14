@@ -62,7 +62,7 @@ module Homebrew
       shellcheck_result = if ruby_files.any? && shell_files.none?
         output_type == :json ? [] : true
       else
-        run_shellcheck(shell_files, output_type)
+        run_shellcheck(shell_files, output_type, fix: fix)
       end
 
       shfmt_result = if ruby_files.any? && shell_files.none?
@@ -164,10 +164,31 @@ module Homebrew
       end
     end
 
-    def run_shellcheck(files, output_type)
+    def run_shellcheck(files, output_type, fix: false)
       files = shell_scripts if files.blank?
 
-      args = ["--shell=bash", "--enable=all", "--external-sources", "--source-path=#{HOMEBREW_LIBRARY}", "--", *files]
+      files = files.map(&:realpath) # use absolute file paths
+
+      args = [
+        "--shell=bash",
+        "--enable=all",
+        "--external-sources",
+        "--source-path=#{HOMEBREW_LIBRARY}",
+        "--",
+        *files,
+      ]
+
+      if fix
+        # patch options:
+        #   -g 0 (--get=0)       : suppress environment variable `PATCH_GET`
+        #   -f   (--force)       : we know what we are doing, force apply patches
+        #   -d / (--directory=/) : change to root directory, since we use absolute file paths
+        #   -p0  (--strip=0)     : do not strip path prefixes, since we are at root directory
+        # NOTE: we use short flags where for compatibility
+        patch_command = %w[patch -g 0 -f -d / -p0]
+        patches = system_command(shellcheck, args: ["--format=diff", *args]).stdout
+        Utils.safe_popen_write(*patch_command) { |p| p.write(patches) } if patches.present?
+      end
 
       case output_type
       when :print
@@ -257,32 +278,13 @@ module Homebrew
     end
 
     def shellcheck
-      # Always use the latest brewed shellcheck
-      unless Formula["shellcheck"].latest_version_installed?
-        if Formula["shellcheck"].any_version_installed?
-          ohai "Upgrading `shellcheck` for shell style checks..."
-          safe_system HOMEBREW_BREW_FILE, "upgrade", "shellcheck"
-        else
-          ohai "Installing `shellcheck` for shell style checks..."
-          safe_system HOMEBREW_BREW_FILE, "install", "shellcheck"
-        end
-      end
-
-      Formula["shellcheck"].opt_bin/"shellcheck"
+      ensure_formula_installed!("shellcheck", latest: true,
+                                              reason: "shell style checks").opt_bin/"shellcheck"
     end
 
     def shfmt
-      # Always use the latest brewed shfmt
-      unless Formula["shfmt"].latest_version_installed?
-        if Formula["shfmt"].any_version_installed?
-          ohai "Upgrading `shfmt` to format shell scripts..."
-          safe_system HOMEBREW_BREW_FILE, "upgrade", "shfmt"
-        else
-          ohai "Installing `shfmt` to format shell scripts..."
-          safe_system HOMEBREW_BREW_FILE, "install", "shfmt"
-        end
-      end
-
+      ensure_formula_installed!("shfmt", latest: true,
+                                         reason: "formatting shell scripts")
       HOMEBREW_LIBRARY/"Homebrew/utils/shfmt.sh"
     end
 

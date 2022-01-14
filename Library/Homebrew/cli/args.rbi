@@ -4,6 +4,12 @@ module Homebrew
   module CLI
     class Args < OpenStruct
       sig { returns(T::Boolean) }
+      def remove_bottle_block?; end
+
+      sig { returns(T::Boolean) }
+      def strict?; end
+
+      sig { returns(T::Boolean) }
       def HEAD?; end
 
       sig { returns(T::Boolean) }
@@ -168,7 +174,7 @@ module Homebrew
       sig { returns(T.nilable(String)) }
       def tap; end
 
-      sig { returns(T.nilable(String)) }
+      sig { returns(T.nilable(T::Array[String])) }
       def macos; end
 
       sig { returns(T.nilable(T::Array[String])) }
@@ -193,7 +199,13 @@ module Homebrew
       def limit; end
 
       sig { returns(T.nilable(String)) }
+      def start_with; end
+
+      sig { returns(T.nilable(String)) }
       def message; end
+
+      sig { returns(T.nilable(String)) }
+      def timeout; end
 
       sig { returns(T.nilable(String)) }
       def issue; end
@@ -296,6 +308,9 @@ module Homebrew
 
       sig { returns(T::Boolean) }
       def custom_remote?; end
+
+      sig { returns(T::Boolean) }
+      def print_path?; end
     end
   end
 end

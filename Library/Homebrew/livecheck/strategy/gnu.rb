@@ -64,7 +64,7 @@ module Homebrew
           return values if match.blank?
 
           # The directory listing page for the project's files
-          values[:url] = "http://ftp.gnu.org/gnu/#{match[:project_name]}/"
+          values[:url] = "https://ftp.gnu.org/gnu/#{match[:project_name]}/"
 
           regex_name = Regexp.escape(T.must(match[:project_name])).gsub("\\-", "-")
 
@@ -92,9 +92,7 @@ module Homebrew
             url:    String,
             regex:  T.nilable(Regexp),
             unused: T.nilable(T::Hash[Symbol, T.untyped]),
-            block:  T.nilable(
-              T.proc.params(arg0: String, arg1: Regexp).returns(T.any(String, T::Array[String], NilClass)),
-            ),
+            block:  T.untyped,
           ).returns(T::Hash[Symbol, T.untyped])
         }
         def self.find_versions(url:, regex: nil, **unused, &block)

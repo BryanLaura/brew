@@ -176,7 +176,6 @@ __brew_internal_commands() {
     'list:List all installed formulae and casks'
     'livecheck:Check for newer versions of formulae and/or casks from upstream'
     'log:Show the `git log` for formula or cask, or show the log for the Homebrew repository if no formula or cask is provided'
-    'man:Generate Homebrew'\''s manpages'
     'migrate:Migrate renamed packages to new names, where formula are old names of packages'
     'missing:Check the given formula kegs for missing dependencies'
     'options:Show install options specific to formula'
@@ -350,22 +349,23 @@ _brew___repository() {
 # brew -S
 _brew__s() {
   _arguments \
+    '(--repology --macports --fink --opensuse --fedora --debian --ubuntu)--archlinux[Search for text in the given database]' \
     '--cask[Search online and locally for casks]' \
     '(--open)--closed[Search for only closed GitHub pull requests]' \
-    '(--repology --macports --fink --opensuse --fedora --ubuntu)--debian[Search for text in the given database]' \
+    '(--repology --macports --fink --opensuse --fedora --archlinux --ubuntu)--debian[Search for text in the given database]' \
     '--debug[Display any debugging information]' \
     '(--pull-request)--desc[Search for formulae with a description matching text and casks with a name matching text]' \
-    '(--repology --macports --fink --opensuse --debian --ubuntu)--fedora[Search for text in the given database]' \
-    '(--repology --macports --opensuse --fedora --debian --ubuntu)--fink[Search for text in the given database]' \
+    '(--repology --macports --fink --opensuse --archlinux --debian --ubuntu)--fedora[Search for text in the given database]' \
+    '(--repology --macports --opensuse --fedora --archlinux --debian --ubuntu)--fink[Search for text in the given database]' \
     '--formula[Search online and locally for formulae]' \
     '--help[Show this message]' \
-    '(--repology --fink --opensuse --fedora --debian --ubuntu)--macports[Search for text in the given database]' \
+    '(--repology --fink --opensuse --fedora --archlinux --debian --ubuntu)--macports[Search for text in the given database]' \
     '(--closed)--open[Search for only open GitHub pull requests]' \
-    '(--repology --macports --fink --fedora --debian --ubuntu)--opensuse[Search for text in the given database]' \
+    '(--repology --macports --fink --fedora --archlinux --debian --ubuntu)--opensuse[Search for text in the given database]' \
     '(--desc)--pull-request[Search for GitHub pull requests containing text]' \
     '--quiet[Make some output more quiet]' \
-    '(--macports --fink --opensuse --fedora --debian --ubuntu)--repology[Search for text in the given database]' \
-    '(--repology --macports --fink --opensuse --fedora --debian)--ubuntu[Search for text in the given database]' \
+    '(--macports --fink --opensuse --fedora --archlinux --debian --ubuntu)--repology[Search for text in the given database]' \
+    '(--repology --macports --fink --opensuse --fedora --archlinux --debian)--ubuntu[Search for text in the given database]' \
     '--verbose[Make some output more verbose]'
 }
 
@@ -477,8 +477,10 @@ _brew_bump() {
     '--full-name[Print formulae/casks with fully-qualified names]' \
     '--help[Show this message]' \
     '--limit[Limit number of package results returned]' \
-    '--no-pull-requests[Do not retrieve pull requests from GitHub]' \
+    '(--open-pr)--no-pull-requests[Do not retrieve pull requests from GitHub]' \
+    '(--no-pull-requests)--open-pr[Open a pull request for the new version if there are none already open]' \
     '--quiet[Make some output more quiet]' \
+    '--start-with[Letter or word that the list of package results should alphabetically follow]' \
     '--verbose[Make some output more verbose]' \
     - formula \
     '(--cask)--formula[Check only formulae]' \
@@ -491,7 +493,7 @@ _brew_bump() {
 # brew bump-cask-pr
 _brew_bump_cask_pr() {
   _arguments \
-    '--commit[When passed with `--write`, generate a new commit after writing changes to the cask file]' \
+    '--commit[When passed with `--write-only`, generate a new commit after writing changes to the cask file]' \
     '--debug[Display any debugging information]' \
     '(--write)--dry-run[Print what would be done rather than doing it]' \
     '--force[Ignore duplicate open PRs]' \
@@ -508,7 +510,7 @@ _brew_bump_cask_pr() {
     '--url[Specify the URL for the new download]' \
     '--verbose[Make some output more verbose]' \
     '--version[Specify the new version for the cask]' \
-    '(--dry-run)--write[Make the expected file modifications without taking any Git actions]' \
+    '--write-only[Make the expected file modifications without taking any Git actions]' \
     - cask \
     '*::cask:__brew_casks'
 }
@@ -549,6 +551,7 @@ _brew_bump_revision() {
     '--help[Show this message]' \
     '--message[Append message to the default commit message]' \
     '--quiet[Make some output more quiet]' \
+    '--remove-bottle-block[Remove the bottle block in addition to bumping the revision]' \
     '--verbose[Make some output more verbose]' \
     '(--dry-run)--write-only[Make the expected file modifications without taking any Git actions]' \
     - formula \
@@ -596,7 +599,7 @@ _brew_cleanup() {
     '--prune-prefix[Only prune the symlinks and directories from the prefix and remove no other files]' \
     '--quiet[Make some output more quiet]' \
     '--verbose[Make some output more verbose]' \
-    '-s[Scrub the cache, including downloads for even the latest versions. Note downloads for any installed formulae or casks will still not be deleted. If you want to delete those too: `rm -rf "$(brew --cache)"`]' \
+    '-s[Scrub the cache, including downloads for even the latest versions. Note that downloads for any installed formulae or casks will still not be deleted. If you want to delete those too: `rm -rf "$(brew --cache)"`]' \
     - formula \
     '*::formula:__brew_formulae' \
     - cask \
@@ -678,8 +681,10 @@ _brew_deps() {
     '(--installed)--all[List dependencies for all available formulae]' \
     '--annotate[Mark any build, test, optional, or recommended dependencies as such in the output]' \
     '--debug[Display any debugging information]' \
+    '--dot[Show text-based graph description in DOT format]' \
     '--for-each[Switch into the mode used by the `--all` option, but only list dependencies for each provided formula, one formula per line. This is used for debugging the `--installed`/`--all` display mode]' \
     '--full-name[List dependencies by their full name]' \
+    '(--tree)--graph[Show dependencies as a directed graph]' \
     '--help[Show this message]' \
     '--include-build[Include `:build` dependencies for formula]' \
     '--include-optional[Include `:optional` dependencies for formula]' \
@@ -688,7 +693,7 @@ _brew_deps() {
     '(--all)--installed[List dependencies for formulae that are currently installed. If formula is specified, list only its dependencies that are currently installed]' \
     '--quiet[Make some output more quiet]' \
     '--skip-recommended[Skip `:recommended` dependencies for formula]' \
-    '--tree[Show dependencies as a tree. When given multiple formula arguments, show individual trees for each formula]' \
+    '(--graph)--tree[Show dependencies as a tree. When given multiple formula arguments, show individual trees for each formula]' \
     '--union[Show the union of dependencies for multiple formula, instead of the intersection]' \
     '--verbose[Make some output more verbose]' \
     '-n[Sort dependencies in topological order]' \
@@ -734,9 +739,10 @@ _brew_dispatch_build_bottle() {
     '(--macos --linux-self-hosted)--linux[Dispatch bottle for Linux (using GitHub runners)]' \
     '(--macos --linux)--linux-self-hosted[Dispatch bottle for Linux (using self-hosted runner)]' \
     '--linux-wheezy[Use Debian Wheezy container for building the bottle on Linux]' \
-    '(--linux --linux-self-hosted)--macos[Version of macOS the bottle should be built for]' \
+    '(--linux --linux-self-hosted)--macos[Version(s) of macOS the bottle should be built for]' \
     '--quiet[Make some output more quiet]' \
     '--tap[Target tap repository (default: `homebrew/core`)]' \
+    '--timeout[Build timeout (in minutes, default: 60)]' \
     '--upload[Upload built bottles]' \
     '--verbose[Make some output more verbose]' \
     '--workflow[Dispatch specified workflow (default: `dispatch-build-bottle.yml`)]' \
@@ -775,6 +781,7 @@ _brew_edit() {
   _arguments \
     '--debug[Display any debugging information]' \
     '--help[Show this message]' \
+    '--print-path[Print the file path to be edited, without opening an editor]' \
     '--quiet[Make some output more quiet]' \
     '--verbose[Make some output more verbose]' \
     - formula \
@@ -940,7 +947,6 @@ _brew_instal() {
     '--debug[If brewing fails, open an interactive debugging session with access to IRB or a shell inside the temporary build directory]' \
     '(--formula)--dictionarydir[Target location for Dictionaries (default: `~/Library/Dictionaries`)]' \
     '(--cask)--display-times[Print install times for each package at the end of the run]' \
-    '(--cask)--env[Disabled other than for internal Homebrew use]' \
     '(--cask)--fetch-HEAD[Fetch the upstream repository to detect if the HEAD installation of the formula is outdated. Otherwise, the repository'\''s HEAD will only be checked for updates when a new stable or development version has been released]' \
     '(--formula)--fontdir[Target location for Fonts (default: `~/Library/Fonts`)]' \
     '--force[Install formulae without checking for previously installed keg-only or non-migrated versions. When installing casks, overwrite existing files (binaries and symlinks are excluded, unless originally from the same cask)]' \
@@ -958,6 +964,7 @@ _brew_instal() {
     '--no-binaries[Disable/enable linking of helper executables (default: enabled)]' \
     '--no-quarantine[Disable/enable quarantining of downloads (default: enabled)]' \
     '(--cask --ignore-dependencies)--only-dependencies[Install the dependencies with specified options but do not install the formula itself]' \
+    '(--cask)--overwrite[Delete files that already exist in the prefix while linking]' \
     '(--formula)--prefpanedir[Target location for Preference Panes (default: `~/Library/PreferencePanes`)]' \
     '(--formula)--qlplugindir[Target location for QuickLook Plugins (default: `~/Library/QuickLook`)]' \
     '(--formula)--quarantine[Disable/enable quarantining of downloads (default: enabled)]' \
@@ -973,7 +980,7 @@ _brew_instal() {
     '(--casks --binaries --require-sha --quarantine --skip-cask-deps --appdir --colorpickerdir --prefpanedir --qlplugindir --mdimporterdir --dictionarydir --fontdir --servicedir --input-methoddir --internet-plugindir --audio-unit-plugindir --vst-plugindir --vst3-plugindir --screen-saverdir --language)--formula[Treat all named arguments as formulae]' \
     '*::formula:__brew_formulae' \
     - cask \
-    '(--formulae --env --ignore-dependencies --only-dependencies --cc --build-from-source --force-bottle --include-test --HEAD --fetch-HEAD --keep-tmp --build-bottle --bottle-arch --display-times --interactive --git)--cask[Treat all named arguments as casks]' \
+    '(--formulae --env --ignore-dependencies --only-dependencies --cc --build-from-source --force-bottle --include-test --HEAD --fetch-HEAD --keep-tmp --build-bottle --bottle-arch --display-times --interactive --git --overwrite)--cask[Treat all named arguments as casks]' \
     '*::cask:__brew_casks'
 }
 
@@ -992,7 +999,6 @@ _brew_install() {
     '--debug[If brewing fails, open an interactive debugging session with access to IRB or a shell inside the temporary build directory]' \
     '(--formula)--dictionarydir[Target location for Dictionaries (default: `~/Library/Dictionaries`)]' \
     '(--cask)--display-times[Print install times for each package at the end of the run]' \
-    '(--cask)--env[Disabled other than for internal Homebrew use]' \
     '(--cask)--fetch-HEAD[Fetch the upstream repository to detect if the HEAD installation of the formula is outdated. Otherwise, the repository'\''s HEAD will only be checked for updates when a new stable or development version has been released]' \
     '(--formula)--fontdir[Target location for Fonts (default: `~/Library/Fonts`)]' \
     '--force[Install formulae without checking for previously installed keg-only or non-migrated versions. When installing casks, overwrite existing files (binaries and symlinks are excluded, unless originally from the same cask)]' \
@@ -1010,6 +1016,7 @@ _brew_install() {
     '--no-binaries[Disable/enable linking of helper executables (default: enabled)]' \
     '--no-quarantine[Disable/enable quarantining of downloads (default: enabled)]' \
     '(--cask --ignore-dependencies)--only-dependencies[Install the dependencies with specified options but do not install the formula itself]' \
+    '(--cask)--overwrite[Delete files that already exist in the prefix while linking]' \
     '(--formula)--prefpanedir[Target location for Preference Panes (default: `~/Library/PreferencePanes`)]' \
     '(--formula)--qlplugindir[Target location for QuickLook Plugins (default: `~/Library/QuickLook`)]' \
     '(--formula)--quarantine[Disable/enable quarantining of downloads (default: enabled)]' \
@@ -1025,7 +1032,7 @@ _brew_install() {
     '(--casks --binaries --require-sha --quarantine --skip-cask-deps --appdir --colorpickerdir --prefpanedir --qlplugindir --mdimporterdir --dictionarydir --fontdir --servicedir --input-methoddir --internet-plugindir --audio-unit-plugindir --vst-plugindir --vst3-plugindir --screen-saverdir --language)--formula[Treat all named arguments as formulae]' \
     '*::formula:__brew_formulae' \
     - cask \
-    '(--formulae --env --ignore-dependencies --only-dependencies --cc --build-from-source --force-bottle --include-test --HEAD --fetch-HEAD --keep-tmp --build-bottle --bottle-arch --display-times --interactive --git)--cask[Treat all named arguments as casks]' \
+    '(--formulae --env --ignore-dependencies --only-dependencies --cc --build-from-source --force-bottle --include-test --HEAD --fetch-HEAD --keep-tmp --build-bottle --bottle-arch --display-times --interactive --git --overwrite)--cask[Treat all named arguments as casks]' \
     '*::cask:__brew_casks'
 }
 
@@ -1105,6 +1112,7 @@ _brew_linkage() {
     '--help[Show this message]' \
     '--quiet[Make some output more quiet]' \
     '--reverse[For every library that a keg references, print its dylib path followed by the binaries that link to it]' \
+    '--strict[Exit with a non-zero status if any undeclared dependencies with linkage are found]' \
     '--test[Show only missing libraries and exit with a non-zero status if any missing libraries are found]' \
     '--verbose[Make some output more verbose]' \
     - installed_formula \
@@ -1213,16 +1221,6 @@ _brew_ls() {
     '*::installed_cask:__brew_installed_casks'
 }
 
-# brew man
-_brew_man() {
-  _arguments \
-    '--debug[Display any debugging information]' \
-    '--fail-if-not-changed[Return a failing status code if no changes are detected in the manpage outputs. This can be used to notify CI when the manpages are out of date. Additionally, the date used in new manpages will match those in the existing manpages (to allow comparison without factoring in the date)]' \
-    '--help[Show this message]' \
-    '--quiet[Make some output more quiet]' \
-    '--verbose[Make some output more verbose]'
-}
-
 # brew migrate
 _brew_migrate() {
   _arguments \
@@ -1308,7 +1306,6 @@ _brew_postinstall() {
 # brew pr-automerge
 _brew_pr_automerge() {
   _arguments \
-    '--autosquash[Instruct `brew pr-publish` to automatically reformat and reword commits in the pull request to our preferred format]' \
     '--debug[Display any debugging information]' \
     '--help[Show this message]' \
     '--ignore-failures[Include pull requests that have failing status checks]' \
@@ -1319,13 +1316,12 @@ _brew_pr_automerge() {
     '--verbose[Make some output more verbose]' \
     '--with-label[Pull requests must have this label]' \
     '--without-approval[Pull requests do not require approval to be merged]' \
-    '--without-labels[Pull requests must not have these labels (default: `do not merge`, `new formula`, `automerge-skip`, `linux to homebrew-core`)]'
+    '--without-labels[Pull requests must not have these labels (default: `do not merge`, `new formula`, `automerge-skip`)]'
 }
 
 # brew pr-publish
 _brew_pr_publish() {
   _arguments \
-    '--autosquash[If supported on the target tap, automatically reformat and reword commits in the pull request to our preferred format]' \
     '--branch[Branch to publish to (default: `master`)]' \
     '--debug[Display any debugging information]' \
     '--help[Show this message]' \
@@ -1369,13 +1365,13 @@ _brew_pr_upload() {
     '--committer[Specify a committer name and email in `git`'\''s standard author format]' \
     '--debug[Display any debugging information]' \
     '--dry-run[Print what would be done rather than doing it]' \
-    '--github-org[Upload to the specified GitHub organisation'\''s GitHub Packages (default: `homebrew`)]' \
     '--help[Show this message]' \
-    '--keep-old[If the formula specifies a rebuild version, attempt to preserve its value in the generated DSL]' \
-    '--no-commit[Do not generate a new commit before uploading]' \
+    '(--upload-only)--keep-old[If the formula specifies a rebuild version, attempt to preserve its value in the generated DSL]' \
+    '(--upload-only)--no-commit[Do not generate a new commit before uploading]' \
     '--quiet[Make some output more quiet]' \
     '--root-url[Use the specified URL as the root of the bottle'\''s URL instead of Homebrew'\''s default]' \
     '--root-url-using[Use the specified download strategy class for downloading the bottle'\''s URL instead of Homebrew'\''s default]' \
+    '(--keep-old --no-commit)--upload-only[Skip running `brew bottle` before uploading]' \
     '--verbose[Make some output more verbose]' \
     '--warn-on-upload-failure[Warn instead of raising an error if the bottle upload fails. Useful for repairing bottle uploads that previously failed]'
 }
@@ -1511,22 +1507,23 @@ _brew_ruby() {
 # brew search
 _brew_search() {
   _arguments \
+    '(--repology --macports --fink --opensuse --fedora --debian --ubuntu)--archlinux[Search for text in the given database]' \
     '--cask[Search online and locally for casks]' \
     '(--open)--closed[Search for only closed GitHub pull requests]' \
-    '(--repology --macports --fink --opensuse --fedora --ubuntu)--debian[Search for text in the given database]' \
+    '(--repology --macports --fink --opensuse --fedora --archlinux --ubuntu)--debian[Search for text in the given database]' \
     '--debug[Display any debugging information]' \
     '(--pull-request)--desc[Search for formulae with a description matching text and casks with a name matching text]' \
-    '(--repology --macports --fink --opensuse --debian --ubuntu)--fedora[Search for text in the given database]' \
-    '(--repology --macports --opensuse --fedora --debian --ubuntu)--fink[Search for text in the given database]' \
+    '(--repology --macports --fink --opensuse --archlinux --debian --ubuntu)--fedora[Search for text in the given database]' \
+    '(--repology --macports --opensuse --fedora --archlinux --debian --ubuntu)--fink[Search for text in the given database]' \
     '--formula[Search online and locally for formulae]' \
     '--help[Show this message]' \
-    '(--repology --fink --opensuse --fedora --debian --ubuntu)--macports[Search for text in the given database]' \
+    '(--repology --fink --opensuse --fedora --archlinux --debian --ubuntu)--macports[Search for text in the given database]' \
     '(--closed)--open[Search for only open GitHub pull requests]' \
-    '(--repology --macports --fink --fedora --debian --ubuntu)--opensuse[Search for text in the given database]' \
+    '(--repology --macports --fink --fedora --archlinux --debian --ubuntu)--opensuse[Search for text in the given database]' \
     '(--desc)--pull-request[Search for GitHub pull requests containing text]' \
     '--quiet[Make some output more quiet]' \
-    '(--macports --fink --opensuse --fedora --debian --ubuntu)--repology[Search for text in the given database]' \
-    '(--repology --macports --fink --opensuse --fedora --debian)--ubuntu[Search for text in the given database]' \
+    '(--macports --fink --opensuse --fedora --archlinux --debian --ubuntu)--repology[Search for text in the given database]' \
+    '(--repology --macports --fink --opensuse --fedora --archlinux --debian)--ubuntu[Search for text in the given database]' \
     '--verbose[Make some output more verbose]'
 }
 
@@ -1582,12 +1579,10 @@ _brew_tap() {
     '--custom-remote[Install or change a tap with a custom remote. Useful for mirrors]' \
     '--debug[Display any debugging information]' \
     '--force-auto-update[Auto-update tap even if it is not hosted on GitHub. By default, only taps hosted on GitHub are auto-updated (for performance reasons)]' \
-    '--full[Convert a shallow clone to a full clone without untapping. Taps are only cloned as shallow clones if `--shallow` was originally passed]' \
     '--help[Show this message]' \
     '--list-pinned[List all pinned taps]' \
     '--quiet[Make some output more quiet]' \
     '--repair[Migrate tapped formulae from symlink-based to directory-based structure]' \
-    '--shallow[Fetch tap as a shallow clone rather than a full clone. Useful for continuous integration]' \
     '--verbose[Make some output more verbose]' \
     - tap \
     '*::tap:__brew_any_tap'
@@ -1611,6 +1606,7 @@ _brew_tap_new() {
   _arguments \
     '--branch[Initialize Git repository and setup GitHub Actions workflows with the specified branch name (default: `main`)]' \
     '--debug[Display any debugging information]' \
+    '--github-packages[Upload bottles to GitHub Packages]' \
     '--help[Show this message]' \
     '--no-git[Don'\''t initialize a Git repository for the tap]' \
     '--pull-label[Label name for pull requests ready to be pulled (default: `pr-pull`)]' \

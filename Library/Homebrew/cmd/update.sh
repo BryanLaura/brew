@@ -2,12 +2,12 @@
 #:
 #:  Fetch the newest version of Homebrew and all formulae from GitHub using `git`(1) and perform any necessary migrations.
 #:
-#:          --merge                      Use `git merge` to apply updates (rather than `git rebase`).
-#:          --preinstall                 Run on auto-updates (e.g. before `brew install`). Skips some slower steps.
-#:      -f, --force                      Always do a slower, full update check (even if unnecessary).
-#:      -v, --verbose                    Print the directories checked and `git` operations performed.
-#:      -d, --debug                      Display a trace of all shell commands as they are executed.
-#:      -h, --help                       Show this message.
+#:        --merge                      Use `git merge` to apply updates (rather than `git rebase`).
+#:        --preinstall                 Run on auto-updates (e.g. before `brew install`). Skips some slower steps.
+#:    -f, --force                      Always do a slower, full update check (even if unnecessary).
+#:    -v, --verbose                    Print the directories checked and `git` operations performed.
+#:    -d, --debug                      Display a trace of all shell commands as they are executed.
+#:    -h, --help                       Show this message.
 
 # HOMEBREW_CURLRC, HOMEBREW_DEVELOPER, HOMEBREW_GIT_EMAIL, HOMEBREW_GIT_NAME
 # HOMEBREW_UPDATE_CLEANUP, HOMEBREW_UPDATE_TO_TAG are from the user environment
@@ -270,12 +270,12 @@ EOS
   # ensure we don't munge line endings on checkout
   git config core.autocrlf false
 
-  if [[ "${DIR}" == "${HOMEBREW_CORE_REPOSITORY}" && -n "${HOMEBREW_LINUXBREW_MIGRATION}" ]]
+  if [[ "${DIR}" == "${HOMEBREW_CORE_REPOSITORY}" && -n "${HOMEBREW_LINUXBREW_CORE_MIGRATION}" ]]
   then
     # Don't even try to rebase/merge on linuxbrew-core migration but rely on
     # stashing etc. above.
     git reset --hard "${QUIET_ARGS[@]}" "${REMOTE_REF}"
-    unset HOMEBREW_LINUXBREW_MIGRATION
+    unset HOMEBREW_LINUXBREW_CORE_MIGRATION
   elif [[ -z "${HOMEBREW_MERGE}" ]]
   then
     # Work around bug where git rebase --quiet is not quiet
@@ -455,7 +455,7 @@ EOS
   fi
 
   export GIT_TERMINAL_PROMPT="0"
-  export GIT_SSH_COMMAND="ssh -oBatchMode=yes"
+  export GIT_SSH_COMMAND="${GIT_SSH_COMMAND:-ssh} -oBatchMode=yes"
 
   if [[ -n "${HOMEBREW_GIT_NAME}" ]]
   then
@@ -502,9 +502,9 @@ EOS
 
   if [[ -d "${HOMEBREW_CORE_REPOSITORY}" ]] &&
      [[ "${HOMEBREW_CORE_DEFAULT_GIT_REMOTE}" != "${HOMEBREW_CORE_GIT_REMOTE}" ||
-        -n "${HOMEBREW_LINUXBREW_MIGRATION}" ]]
+        -n "${HOMEBREW_LINUXBREW_CORE_MIGRATION}" ]]
   then
-    if [[ -n "${HOMEBREW_LINUXBREW_MIGRATION}" ]]
+    if [[ -n "${HOMEBREW_LINUXBREW_CORE_MIGRATION}" ]]
     then
       # This means a migration is needed (in case it isn't run this time)
       safe_cd "${HOMEBREW_REPOSITORY}"
@@ -657,7 +657,7 @@ EOS
 
           if [[ "${UPSTREAM_SHA_HTTP_CODE}" == "404" ]]
           then
-            TAP="${DIR#${HOMEBREW_LIBRARY}/Taps/}"
+            TAP="${DIR#"${HOMEBREW_LIBRARY}"/Taps/}"
             echo "${TAP} does not exist! Run \`brew untap ${TAP}\` to remove it." >>"${update_failed_file}"
           else
             echo "Fetching ${DIR} failed!" >>"${update_failed_file}"

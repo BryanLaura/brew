@@ -108,10 +108,7 @@ module Homebrew
 
   def ensure_relocation_formulae_installed!
     Keg.relocation_formulae.each do |f|
-      next if Formula[f].latest_version_installed?
-
-      ohai "Installing #{f}..."
-      safe_system HOMEBREW_BREW_FILE, "install", f
+      ensure_formula_installed!(f, latest: true)
     end
   end
 
@@ -263,12 +260,35 @@ module Homebrew
       return default_tar_args
     end
 
-    unless gnu_tar.any_version_installed?
-      ohai "Installing `gnu-tar` for bottling..."
-      safe_system HOMEBREW_BREW_FILE, "install", "--formula", gnu_tar.full_name
-    end
+    ensure_formula_installed!(gnu_tar, reason: "bottling")
 
     ["#{gnu_tar.opt_bin}/gtar", gnutar_args].freeze
+  end
+
+  def formula_ignores(f)
+    ignores = []
+    cellar_regex = Regexp.escape(HOMEBREW_CELLAR)
+
+    # Ignore matches to go keg, because all go binaries are statically linked.
+    any_go_deps = f.deps.any? do |dep|
+      dep.name =~ Version.formula_optionally_versioned_regex(:go)
+    end
+    if any_go_deps
+      go_regex = Version.formula_optionally_versioned_regex(:go, full: false)
+      ignores << %r{#{cellar_regex}/#{go_regex}/[\d.]+/libexec}
+    end
+
+    ignores << case f.name
+    # On Linux, GCC installation can be moved so long as the whole directory tree is moved together:
+    # https://gcc-help.gcc.gnu.narkive.com/GnwuCA7l/moving-gcc-from-the-installation-path-is-it-allowed.
+    when Version.formula_optionally_versioned_regex(:gcc)
+      %r{#{cellar_regex}/gcc} if OS.linux?
+    # binutils is relocatable for the same reason: https://github.com/Homebrew/brew/pull/11899#issuecomment-906804451.
+    when Version.formula_optionally_versioned_regex(:binutils)
+      %r{#{cellar_regex}/binutils} if OS.linux?
+    end
+
+    ignores.compact
   end
 
   def bottle_formula(f, args:)
@@ -440,14 +460,9 @@ module Homebrew
         # Ignore matches to source code, which is not required at run time.
         # These matches may be caused by debugging symbols.
         ignores = [%r{/include/|\.(c|cc|cpp|h|hpp)$}]
-        any_go_deps = f.deps.any? do |dep|
-          dep.name =~ Version.formula_optionally_versioned_regex(:go)
-        end
-        if any_go_deps
-          go_regex =
-            Version.formula_optionally_versioned_regex(:go, full: false)
-          ignores << %r{#{Regexp.escape(HOMEBREW_CELLAR)}/#{go_regex}/[\d.]+/libexec}
-        end
+
+        # Add additional workarounds to ignore
+        ignores += formula_ignores(f)
 
         repository_reference = if HOMEBREW_PREFIX == HOMEBREW_REPOSITORY
           HOMEBREW_LIBRARY
@@ -603,12 +618,26 @@ module Homebrew
       bottle.root_url bottle_hash["bottle"]["root_url"]
       bottle.rebuild bottle_hash["bottle"]["rebuild"]
 
+      path = HOMEBREW_REPOSITORY/bottle_hash["formula"]["path"]
+      formula = Formulary.factory(path)
+
+      old_bottle_spec = formula.bottle_specification
+      old_pkg_version = formula.pkg_version
+      FormulaVersions.new(formula).formula_at_revision("origin/HEAD") do |upstream_f|
+        old_pkg_version = upstream_f.pkg_version
+      end
+
+      old_bottle_spec_matches = old_bottle_spec &&
+                                bottle_hash["formula"]["pkg_version"] == old_pkg_version.to_s &&
+                                bottle.root_url == old_bottle_spec.root_url &&
+                                old_bottle_spec.collector.tags.present?
+
       # if all the cellars and checksums are the same: we can create an
       # `all: $SHA256` bottle.
       tag_hashes = bottle_hash["bottle"]["tags"].values
-      all_bottle = (tag_hashes.count > 1) && tag_hashes.uniq do |tag_hash|
-        "#{tag_hash["cellar"]}-#{tag_hash["sha256"]}"
-      end.count == 1
+      all_bottle = (!old_bottle_spec_matches || bottle.rebuild != old_bottle_spec.rebuild) &&
+                   tag_hashes.count > 1 &&
+                   tag_hashes.uniq { |tag_hash| "#{tag_hash["cellar"]}-#{tag_hash["sha256"]}" }.count == 1
 
       bottle_hash["bottle"]["tags"].each do |tag, tag_hash|
         cellar = tag_hash["cellar"]
@@ -631,14 +660,7 @@ module Homebrew
         next
       end
 
-      path = HOMEBREW_REPOSITORY/bottle_hash["formula"]["path"]
-      formula = Formulary.factory(path)
-      old_bottle_spec = formula.bottle_specification
-
-      no_bottle_changes = if old_bottle_spec &&
-                             bottle_hash["formula"]["pkg_version"] == formula.pkg_version.to_s &&
-                             bottle.rebuild  != old_bottle_spec.rebuild &&
-                             bottle.root_url == old_bottle_spec.root_url
+      no_bottle_changes = if old_bottle_spec_matches && bottle.rebuild != old_bottle_spec.rebuild
         bottle.collector.tags.all? do |tag|
           tag_spec = bottle.collector.specification_for(tag)
           next false if tag_spec.blank?

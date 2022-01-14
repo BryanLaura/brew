@@ -161,8 +161,20 @@ module Homebrew
       if cleanup.periodic_clean_due?
         cleanup.periodic_clean!
       elsif f.latest_version_installed? && !cleanup.skip_clean_formula?(f)
+        ohai "Running `brew cleanup #{f}`..."
+        puts_no_install_cleanup_disable_message_if_not_already!
         cleanup.cleanup_formula(f)
       end
+    end
+
+    def self.puts_no_install_cleanup_disable_message_if_not_already!
+      return if Homebrew::EnvConfig.no_env_hints?
+      return if Homebrew::EnvConfig.no_install_cleanup?
+      return if @puts_no_install_cleanup_disable_message_if_not_already
+
+      puts "Disable this behaviour by setting HOMEBREW_NO_INSTALL_CLEANUP."
+      puts "Hide these hints with HOMEBREW_NO_ENV_HINTS (see `man brew`)."
+      @puts_no_install_cleanup_disable_message_if_not_already = true
     end
 
     def skip_clean_formula?(f)
@@ -191,8 +203,12 @@ module Homebrew
         ohai "Would run `brew cleanup` which has not been run in the last #{CLEANUP_DEFAULT_DAYS} days"
       else
         ohai "`brew cleanup` has not been run in the last #{CLEANUP_DEFAULT_DAYS} days, running now..."
-        clean!(quiet: true, periodic: true)
       end
+
+      Cleanup.puts_no_install_cleanup_disable_message_if_not_already!
+      return if dry_run?
+
+      clean!(quiet: true, periodic: true)
     end
 
     def clean!(quiet: false, periodic: false)
@@ -269,7 +285,7 @@ module Homebrew
 
     def cleanup_keg(keg)
       cleanup_path(keg) { keg.uninstall(raise_failures: true) }
-    rescue Errno::EACCES => e
+    rescue Errno::EACCES, Errno::ENOTEMPTY => e
       opoo e.message
       unremovable_kegs << keg
     end

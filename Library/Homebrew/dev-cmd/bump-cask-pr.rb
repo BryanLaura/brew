@@ -22,11 +22,12 @@ module Homebrew
       EOS
       switch "-n", "--dry-run",
              description: "Print what would be done rather than doing it."
-      switch "--write",
+      switch "--write-only",
              description: "Make the expected file modifications without taking any Git actions."
+      switch "--write", hidden: true
       switch "--commit",
-             depends_on:  "--write",
-             description: "When passed with `--write`, generate a new commit after writing changes "\
+             depends_on:  "--write-only",
+             description: "When passed with `--write-only`, generate a new commit after writing changes "\
                           "to the cask file."
       switch "--no-audit",
              description: "Don't run `brew audit` before opening the PR."
@@ -60,6 +61,8 @@ module Homebrew
 
   def bump_cask_pr
     args = bump_cask_pr_args.parse
+
+    odeprecated "`brew bump-cask-pr --write`", "`brew bump-cask-pr --write-only`" if args.write?
 
     # This will be run by `brew style` later so run it first to not start
     # spamming during normal output.
@@ -170,6 +173,10 @@ module Homebrew
     branch_name = "bump-#{cask.token}"
     commit_message = "Update #{cask.token}"
     if new_version.present?
+      if new_version.before_comma != old_version.before_comma
+        new_version = new_version.before_comma
+        old_version = old_version.before_comma
+      end
       branch_name += "-#{new_version.tr(",:", "-")}"
       commit_message += " from #{old_version} to #{new_version}"
     end

@@ -94,7 +94,7 @@ module Homebrew
         unreadable_error = nil
 
         if only != :cask
-          if prefer_loading_from_api && ENV["HOMEBREW_INSTALL_FROM_API"].present? &&
+          if prefer_loading_from_api && Homebrew::EnvConfig.install_from_api? &&
              Homebrew::API::Bottle.available?(name)
             Homebrew::API::Bottle.fetch_bottles(name)
           end
@@ -110,9 +110,8 @@ module Homebrew
             when :default_kegs
               resolve_default_keg(name)
             when :keg
-              odeprecated "`load_formula_or_cask` with `method: :keg`",
-                          "`load_formula_or_cask` with `method: :default_kegs`"
-              resolve_default_keg(name)
+              odisabled "`load_formula_or_cask` with `method: :keg`",
+                        "`load_formula_or_cask` with `method: :default_kegs`"
             when :kegs
               _, kegs = resolve_kegs(name)
               kegs
@@ -133,7 +132,7 @@ module Homebrew
         end
 
         if only != :formula
-          if prefer_loading_from_api && ENV["HOMEBREW_INSTALL_FROM_API"].present? &&
+          if prefer_loading_from_api && Homebrew::EnvConfig.install_from_api? &&
              Homebrew::API::CaskSource.available?(name)
             contents = Homebrew::API::CaskSource.fetch(name)
           end
@@ -168,6 +167,8 @@ module Homebrew
           raise TapFormulaOrCaskUnavailableError.new(tap, short_name)
         end
 
+        raise NoSuchKegError, name if resolve_formula(name)
+
         raise FormulaOrCaskUnavailableError, name
       end
       private :load_formula_or_cask
@@ -185,10 +186,6 @@ module Homebrew
 
       def to_resolved_formulae_to_casks(only: parent&.only_formula_or_cask)
         to_formulae_to_casks(only: only, method: :resolve)
-      end
-
-      def to_formulae_paths
-        to_paths(only: :formula)
       end
 
       # Keep existing paths and try to convert others to tap, formula or cask paths.
@@ -319,7 +316,7 @@ module Homebrew
         rack = Formulary.to_rack(name.downcase)
 
         kegs = rack.directory? ? rack.subdirs.map { |d| Keg.new(d) } : []
-        raise NoSuchKegError, rack.basename if kegs.none?
+        raise NoSuchKegError, name if kegs.none?
 
         [rack, kegs]
       end

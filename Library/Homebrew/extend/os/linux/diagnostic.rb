@@ -10,6 +10,16 @@ require "os/linux/kernel"
 module Homebrew
   module Diagnostic
     class Checks
+      undef fatal_preinstall_checks, supported_configuration_checks
+
+      def fatal_preinstall_checks
+        %w[
+          check_access_directories
+          check_linuxbrew_core
+          check_linuxbrew_bottle_domain
+        ].freeze
+      end
+
       def supported_configuration_checks
         %w[
           check_glibc_minimum_version
@@ -107,6 +117,25 @@ module Homebrew
           We recommend updating to a newer version via your distribution's
           package manager, upgrading your distribution to the latest version,
           or changing distributions.
+        EOS
+      end
+
+      def check_linuxbrew_core
+        return unless CoreTap.instance.linuxbrew_core?
+
+        <<~EOS
+          Your Linux Homebrew/core repository is still linuxbrew-core.
+          You must `brew update` to update to homebrew-core.
+        EOS
+      end
+
+      def check_linuxbrew_bottle_domain
+        return unless Homebrew::EnvConfig.bottle_domain.include?("linuxbrew")
+
+        <<~EOS
+          Your HOMEBREW_BOTTLE_DOMAIN still contains "linuxbrew".
+          You must unset it (or adjust it to not contain linuxbrew
+          e.g. by using homebrew instead).
         EOS
       end
     end
