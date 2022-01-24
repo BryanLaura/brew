@@ -592,7 +592,7 @@ The search for *`text`* is extended online to `homebrew/core` and `homebrew/cask
 Print export statements. When run in a shell, this installation of Homebrew will be added to your `PATH`, `MANPATH`, and `INFOPATH`.
 
 The variables `HOMEBREW_PREFIX`, `HOMEBREW_CELLAR` and `HOMEBREW_REPOSITORY` are also exported to avoid querying them multiple times.
-To help guarantee idempotence, this command produces no output when Homebrew's `bin` and `sbin` directores are first and second
+To help guarantee idempotence, this command produces no output when Homebrew's `bin` and `sbin` directories are first and second
 respectively in your `PATH`. Consider adding evaluation of this command's output to your dotfiles (e.g. `~/.profile`,
 `~/.bash_profile`, or `~/.zprofile`) with: `eval "$(brew shellenv)"`
 
@@ -1757,7 +1757,7 @@ Otherwise, operate on `~/Library/LaunchAgents` (started at login).
 <br>Remove all unused services.
 
 * `--file`:
-  Use the plist file from this location to start or run the service.
+  Use the plist file from this location to `start` or `run` the service.
 * `--all`:
   Run *`subcommand`* on all services.
 * `--json`:
@@ -2208,11 +2208,9 @@ Homebrew's Project Leadership Committee is Issy Long, Jonathan Chang, Markus Rei
 
 Homebrew's Technical Steering Committee is Bo Anderson, FX Coudert, Michka Popoff, Mike McQuaid and Rylan Polster.
 
-Homebrew's Linux maintainers are Daniel Nachun, Dawid Dziurla, Issy Long, Jonathan Chang, Michka Popoff and Shaun Jackman.
+Homebrew's other current maintainers are Alexander Bayandin, Bevan Kay, Branch Vincent, Caleb Xu, Carlo Cabrera, Connor, Daniel Nachun, Dawid Dziurla, Dustin Rodrigues, Eric Knibbe, George Adams, Maxim Belkin, Miccal Matthews, Michael Cho, Nanda H Krishna, Randall, Sam Ford, Shaun Jackman, Steve Peters, Thierry Moisan, Tom Schoonjans, Vítor Galvão and rui.
 
-Homebrew's other current maintainers are Alexander Bayandin, Bevan Kay, Branch Vincent, Caleb Xu, Carlo Cabrera, Connor, Dustin Rodrigues, Eric Knibbe, George Adams, Maxim Belkin, Miccal Matthews, Michael Cho, Nanda H Krishna, Randall, Sam Ford, Steve Peters, Thierry Moisan, Tom Schoonjans, Vítor Galvão and rui.
-
-Former maintainers with significant contributions include Jan Viljanen, JCount, commitay, Dominyk Tiller, Tim Smith, Baptiste Fontaine, Xu Cheng, Martin Afanasjew, Brett Koonce, Charlie Sharpsteen, Jack Nagel, Adam Vandenberg, Andrew Janke, Alex Dunn, neutric, Tomasz Pajor, Uladzislau Shablinski, Alyssa Ross, ilovezfs, Chongyu Zhu and Homebrew's creator: Max Howell.
+Former maintainers with significant contributions include Claudia Pellegrino, Seeker, William Woodruff, Jan Viljanen, JCount, commitay, Dominyk Tiller, Tim Smith, Baptiste Fontaine, Xu Cheng, Martin Afanasjew, Brett Koonce, Charlie Sharpsteen, Jack Nagel, Adam Vandenberg, Andrew Janke, Alex Dunn, neutric, Tomasz Pajor, Uladzislau Shablinski, Alyssa Ross, ilovezfs, Chongyu Zhu and Homebrew's creator: Max Howell.
 
 ## BUGS
 

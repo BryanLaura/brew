@@ -31,11 +31,9 @@ class Keg
           change_install_name(old_name, new_name, file) if new_name
         end
 
-        if ENV["HOMEBREW_RELOCATE_RPATHS"]
-          each_linkage_for(file, :rpaths) do |old_name|
-            new_name = relocated_name_for(old_name, relocation)
-            change_rpath(old_name, new_name, file) if new_name
-          end
+        each_linkage_for(file, :rpaths) do |old_name|
+          new_name = relocated_name_for(old_name, relocation)
+          change_rpath(old_name, new_name, file) if new_name
         end
       end
     end
@@ -57,9 +55,10 @@ class Keg
         end
 
         each_linkage_for(file, :rpaths) do |bad_name|
-          # Strip rpaths rooted in the build directory
+          # Strip duplicate rpaths and rpaths rooted in the build directory.
           next if !bad_name.start_with?(HOMEBREW_TEMP.to_s) &&
-                  !bad_name.start_with?(HOMEBREW_TEMP.realpath.to_s)
+                  !bad_name.start_with?(HOMEBREW_TEMP.realpath.to_s) &&
+                  (file.rpaths.count(bad_name) == 1)
 
           delete_rpath(bad_name, file)
         end
@@ -94,7 +93,6 @@ class Keg
   def each_linkage_for(file, linkage_type, &block)
     links = file.method(linkage_type)
                 .call
-                .uniq
                 .grep_v(/^@(loader_|executable_|r)path/)
     links.each(&block)
   end
