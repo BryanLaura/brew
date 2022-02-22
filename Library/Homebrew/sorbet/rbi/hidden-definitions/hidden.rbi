@@ -12,12 +12,6 @@ class AbstractDownloadStrategy
   extend ::T::Private::Methods::SingletonMethodHooks
 end
 
-class ActiveRecordColumnTypeHelper
-  extend ::T::Sig
-  extend ::T::Private::Methods::MethodHooks
-  extend ::T::Private::Methods::SingletonMethodHooks
-end
-
 class ActiveSupport::Deprecation
   def self.deprecation_warning(*args, &block); end
 
@@ -1311,12 +1305,6 @@ class Dir
 end
 
 module DiskUsageExtension
-  extend ::T::Private::Methods::MethodHooks
-  extend ::T::Private::Methods::SingletonMethodHooks
-end
-
-class DynamicMixinCompiler
-  extend ::T::Sig
   extend ::T::Private::Methods::MethodHooks
   extend ::T::Private::Methods::SingletonMethodHooks
 end
@@ -3118,8 +3106,6 @@ module Kernel
   extend ::T::Private::Methods::SingletonMethodHooks
   def self.at_exit(); end
 
-  def self.autoload(arg, arg1); end
-
   def self.fork(); end
 
   def self.gem(dep, *reqs); end
@@ -3174,6 +3160,8 @@ module MachOShim
 end
 
 class MessagePack::Packer
+  def reset(); end
+
   def write_bin(arg); end
 
   def write_bin_header(arg); end
@@ -3399,8 +3387,6 @@ class MockExpectationError
 end
 
 class Module
-  def autoload_without_tapioca(arg, arg1); end
-
   def context(*a, &b); end
 
   def describe(*a, &b); end
@@ -3498,13 +3484,7 @@ end
 
 Net::HTTPFatalErrorCode = Net::HTTPClientError
 
-class Net::HTTPInformation
-end
-
-Net::HTTPInformationCode::EXCEPTION_TYPE = Net::HTTPError
-
-class Net::HTTPInformation
-end
+Net::HTTPInformationCode = Net::HTTPInformation
 
 class Net::HTTPLoopDetected
   HAS_BODY = ::T.let(nil, ::T.untyped)
@@ -3564,13 +3544,7 @@ Net::HTTPServerErrorCode = Net::HTTPServerError
 
 Net::HTTPSession = Net::HTTP
 
-class Net::HTTPSuccess
-end
-
-Net::HTTPSuccessCode::EXCEPTION_TYPE = Net::HTTPError
-
-class Net::HTTPSuccess
-end
+Net::HTTPSuccessCode = Net::HTTPSuccess
 
 class Net::HTTPURITooLong
   HAS_BODY = ::T.let(nil, ::T.untyped)
@@ -4157,6 +4131,12 @@ class RBI::ASTVisitor
 end
 
 class RBI::File
+  extend ::T::Sig
+  extend ::T::Private::Methods::MethodHooks
+  extend ::T::Private::Methods::SingletonMethodHooks
+end
+
+class RBI::Formatter
   extend ::T::Sig
   extend ::T::Private::Methods::MethodHooks
   extend ::T::Private::Methods::SingletonMethodHooks
@@ -5041,10 +5021,8 @@ end
 
 module RuboCop::AST::NodePattern::Sets
   SET_BUILD_RECOMMENDED_TEST_OPTIONAL = ::T.let(nil, ::T.untyped)
-  SET_CHANGE_COLUMN_EXECUTE = ::T.let(nil, ::T.untyped)
   SET_DEPENDS_ON_USES_FROM_MACOS = ::T.let(nil, ::T.untyped)
   SET_INCLUDE_WITH_WITHOUT = ::T.let(nil, ::T.untyped)
-  SET_ROOT_PUBLIC_PATH = ::T.let(nil, ::T.untyped)
   SET_SYSTEM_SHELL_OUTPUT_PIPE_OUTPUT = ::T.let(nil, ::T.untyped)
   SET_WITH_WITHOUT = ::T.let(nil, ::T.untyped)
 end
@@ -6771,44 +6749,6 @@ class Tab
 end
 
 class Tap
-  extend ::T::Private::Methods::MethodHooks
-  extend ::T::Private::Methods::SingletonMethodHooks
-end
-
-class Tapioca::Compilers::Dsl::Base
-  extend ::T::Sig
-  extend ::T::Helpers
-  extend ::T::Private::Abstract::Hooks
-  extend ::T::InterfaceWrapper::Helpers
-  extend ::T::Private::Methods::MethodHooks
-  extend ::T::Private::Methods::SingletonMethodHooks
-end
-
-module Tapioca::Compilers::Dsl::ParamHelper
-  extend ::T::Sig
-  extend ::T::Private::Methods::MethodHooks
-  extend ::T::Private::Methods::SingletonMethodHooks
-end
-
-class Tapioca::Compilers::DslCompiler
-  extend ::T::Sig
-  extend ::T::Private::Methods::MethodHooks
-  extend ::T::Private::Methods::SingletonMethodHooks
-end
-
-module Tapioca::Reflection
-  extend ::T::Sig
-  extend ::T::Private::Methods::MethodHooks
-  extend ::T::Private::Methods::SingletonMethodHooks
-end
-
-module Tapioca::Trackers::Autoload
-  extend ::T::Sig
-  extend ::T::Private::Methods::SingletonMethodHooks
-end
-
-module Tapioca::Trackers::Mixin
-  extend ::T::Sig
   extend ::T::Private::Methods::MethodHooks
   extend ::T::Private::Methods::SingletonMethodHooks
 end
