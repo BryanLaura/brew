@@ -6,8 +6,8 @@ require "bundle_version"
 module Homebrew
   module Livecheck
     module Strategy
-      # The {Sparkle} strategy fetches content at a URL and parses
-      # it as a Sparkle appcast in XML format.
+      # The {Sparkle} strategy fetches content at a URL and parses it as a
+      # Sparkle appcast in XML format.
       #
       # This strategy is not applied automatically and it's necessary to use
       # `strategy :sparkle` in a `livecheck` block to apply it.
@@ -36,6 +36,8 @@ module Homebrew
         Item = Struct.new(
           # @api public
           :title,
+          # @api public
+          :channel,
           # @api private
           :pub_date,
           # @api public
@@ -53,14 +55,17 @@ module Homebrew
 
           # @api public
           delegate short_version: :bundle_version
+
+          # @api public
+          delegate nice_version: :bundle_version
         end
 
-        # Identify version information from a Sparkle appcast.
+        # Identifies version information from a Sparkle appcast.
         #
         # @param content [String] the text of the Sparkle appcast
         # @return [Item, nil]
-        sig { params(content: String).returns(T.nilable(Item)) }
-        def self.item_from_content(content)
+        sig { params(content: String).returns(T::Array[Item]) }
+        def self.items_from_content(content)
           require "rexml/document"
 
           parsing_tries = 0
@@ -75,8 +80,8 @@ module Homebrew
             raise if parsing_tries > 1
 
             # When an XML document contains a prefix without a corresponding
-            # namespace, it's necessary to remove the the prefix from the
-            # content to be able to successfully parse it using REXML
+            # namespace, it's necessary to remove the prefix from the content
+            # to be able to successfully parse it using REXML
             content = content.gsub(%r{(</?| )#{Regexp.escape(undefined_prefix)}:}, '\1')
             retry
           end
@@ -89,7 +94,7 @@ module Homebrew
             end
           end
 
-          items = xml.get_elements("//rss//channel//item").map do |item|
+          xml.get_elements("//rss//channel//item").map do |item|
             enclosure = item.elements["enclosure"]
 
             if enclosure
@@ -99,12 +104,13 @@ module Homebrew
               os = enclosure["os"]
             end
 
+            channel = item.elements["channel"]&.text
             url ||= item.elements["link"]&.text
             short_version ||= item.elements["shortVersionString"]&.text&.strip
             version ||= item.elements["version"]&.text&.strip
 
             title = item.elements["title"]&.text&.strip
-            pub_date = item.elements["pubDate"]&.text&.strip&.presence&.yield_self do |date_string|
+            pub_date = item.elements["pubDate"]&.text&.strip&.presence&.then do |date_string|
               Time.parse(date_string)
             rescue ArgumentError
               # Omit unparseable strings (e.g. non-English dates)
@@ -132,20 +138,26 @@ module Homebrew
 
             data = {
               title:          title,
-              pub_date:       pub_date || Time.new(0),
+              channel:        channel,
+              pub_date:       pub_date,
               url:            url,
               bundle_version: bundle_version,
             }.compact
+            next if data.empty?
 
-            Item.new(**data) unless data.empty?
+            # Set a default `pub_date` (for sorting) if one isn't provided
+            data[:pub_date] ||= Time.new(0)
+
+            Item.new(**data)
           end.compact
-
-          items.max_by { |item| [item.pub_date, item.bundle_version] }
         end
 
-        # Identify versions from content
+        # Uses `#items_from_content` to identify versions from the Sparkle
+        # appcast content or, if a block is provided, passes the content to
+        # the block to handle matching.
         #
-        # @param content [String] the content to pull version information from
+        # @param content [String] the content to check
+        # @param regex [Regexp, nil] a regex for use in a strategy block
         # @return [Array]
         sig {
           params(
@@ -155,19 +167,32 @@ module Homebrew
           ).returns(T::Array[String])
         }
         def self.versions_from_content(content, regex = nil, &block)
-          item = item_from_content(content)
-          return [] if item.blank?
+          items = items_from_content(content).sort_by { |item| [item.pub_date, item.bundle_version] }.reverse
+          return [] if items.blank?
+
+          item = items.first
 
           if block
-            block_return_value = regex.present? ? yield(item, regex) : yield(item)
+            block_return_value = case block.parameters[0]
+            when [:opt, :item], [:rest]
+              regex.present? ? yield(item, regex) : yield(item)
+            when [:opt, :items]
+              regex.present? ? yield(items, regex) : yield(items)
+            else
+              raise "First argument of Sparkle `strategy` block must be `item` or `items`"
+            end
             return Strategy.handle_block_return(block_return_value)
           end
 
-          version = item.bundle_version&.nice_version
+          version = T.must(item).bundle_version&.nice_version
           version.present? ? [version] : []
         end
 
         # Checks the content at the URL for new versions.
+        #
+        # @param url [String] the URL of the content to check
+        # @param regex [Regexp, nil] a regex for use in a strategy block
+        # @return [Hash]
         sig {
           params(
             url:     String,
@@ -181,7 +206,7 @@ module Homebrew
             raise ArgumentError, "#{T.must(name).demodulize} only supports a regex when using a `strategy` block"
           end
 
-          match_data = { matches: {}, url: url }
+          match_data = { matches: {}, regex: regex, url: url }
 
           match_data.merge!(Strategy.page_content(url))
           content = match_data.delete(:content)

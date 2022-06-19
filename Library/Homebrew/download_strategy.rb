@@ -327,7 +327,7 @@ class AbstractFileDownloadStrategy < AbstractDownloadStrategy
     @resolved_url_and_basename = [url, parse_basename(url)]
   end
 
-  def parse_basename(url)
+  def parse_basename(url, search_query: true)
     uri_path = if url.match?(URI::DEFAULT_PARSER.make_regexp)
       uri = URI(url)
 
@@ -339,23 +339,29 @@ class AbstractFileDownloadStrategy < AbstractDownloadStrategy
         end
       end
 
-      uri.query ? "#{uri.path}?#{uri.query}" : uri.path
+      if uri.query && search_query
+        "#{uri.path}?#{uri.query}"
+      else
+        uri.path
+      end
     else
       url
     end
 
     uri_path = URI.decode_www_form_component(uri_path)
+    query_regex = /[^?&]+/
 
     # We need a Pathname because we've monkeypatched extname to support double
     # extensions (e.g. tar.gz).
     # Given a URL like https://example.com/download.php?file=foo-1.0.tar.gz
     # the basename we want is "foo-1.0.tar.gz", not "download.php".
     Pathname.new(uri_path).ascend do |path|
-      ext = path.extname[/[^?&]+/]
-      return path.basename.to_s[/[^?&]+#{Regexp.escape(ext)}/] if ext
+      ext = path.extname[query_regex]
+      return path.basename.to_s[/#{query_regex.source}#{Regexp.escape(ext)}/] if ext
     end
 
-    File.basename(uri_path)
+    # Strip query string
+    File.basename(uri_path)[query_regex]
   end
 end
 
@@ -369,6 +375,7 @@ class CurlDownloadStrategy < AbstractFileDownloadStrategy
 
   def initialize(url, name, version, **meta)
     super
+    @try_partial = true
     @mirrors = meta.fetch(:mirrors, [])
   end
 
@@ -452,30 +459,19 @@ class CurlDownloadStrategy < AbstractFileDownloadStrategy
     return @resolved_info_cache[url] if @resolved_info_cache.include?(url)
 
     if (domain = Homebrew::EnvConfig.artifact_domain)
-      url = url.sub(%r{^(https?://#{GitHubPackages::URL_DOMAIN}/)?}o, "#{domain.chomp("/")}/")
+      url = url.sub(%r{^https?://#{GitHubPackages::URL_DOMAIN}/}o, "#{domain.chomp("/")}/")
     end
 
-    out, _, status= curl_output("--location", "--silent", "--head", "--request", "GET", url.to_s, timeout: timeout)
+    output, _, _status = curl_output(
+      "--location", "--silent", "--head", "--request", "GET", url.to_s,
+      timeout: timeout
+    )
+    parsed_output = parse_curl_output(output)
 
-    lines = status.success? ? out.lines.map(&:chomp) : []
+    lines = output.to_s.lines.map(&:chomp)
 
-    locations = lines.map { |line| line[/^Location:\s*(.*)$/i, 1] }
-                     .compact
-
-    redirect_url = locations.reduce(url) do |current_url, location|
-      if location.start_with?("//")
-        uri = URI(current_url)
-        "#{uri.scheme}:#{location}"
-      elsif location.start_with?("/")
-        uri = URI(current_url)
-        "#{uri.scheme}://#{uri.host}#{location}"
-      elsif location.start_with?("./")
-        uri = URI(current_url)
-        "#{uri.scheme}://#{uri.host}#{Pathname(uri.path).dirname/location}"
-      else
-        location
-      end
-    end
+    final_url = curl_response_last_location(parsed_output[:responses], absolutize: true, base_url: url)
+    final_url ||= url
 
     content_disposition_parser = Mechanize::HTTP::ContentDispositionParser.new
 
@@ -509,10 +505,10 @@ class CurlDownloadStrategy < AbstractFileDownloadStrategy
            .map(&:to_i)
            .last
 
-    basename = filenames.last || parse_basename(redirect_url)
-    is_redirection = url != redirect_url
+    is_redirection = url != final_url
+    basename = filenames.last || parse_basename(final_url, search_query: !is_redirection)
 
-    @resolved_info_cache[url] = [redirect_url, basename, time, file_size, is_redirection]
+    @resolved_info_cache[url] = [final_url, basename, time, file_size, is_redirection]
   end
 
   def _fetch(url:, resolved_url:, timeout:)
@@ -528,7 +524,7 @@ class CurlDownloadStrategy < AbstractFileDownloadStrategy
   end
 
   def _curl_download(resolved_url, to, timeout)
-    curl_download resolved_url, to: to, timeout: timeout
+    curl_download resolved_url, to: to, try_partial: @try_partial, timeout: timeout
   end
 
   # Curl options to be always passed to curl,
@@ -582,7 +578,7 @@ class HomebrewCurlDownloadStrategy < CurlDownloadStrategy
   def _curl_download(resolved_url, to, timeout)
     raise HomebrewCurlDownloadStrategyError, url unless Formula["curl"].any_version_installed?
 
-    curl_download resolved_url, to: to, timeout: timeout, use_homebrew_curl: true
+    curl_download resolved_url, to: to, try_partial: @try_partial, timeout: timeout, use_homebrew_curl: true
   end
 end
 
@@ -661,7 +657,7 @@ class CurlPostDownloadStrategy < CurlDownloadStrategy
       query.nil? ? [url, "-X", "POST"] : [url, "-d", query]
     end
 
-    curl_download(*args, to: temporary_path, timeout: timeout)
+    curl_download(*args, to: temporary_path, try_partial: @try_partial, timeout: timeout)
   end
 end
 
@@ -1143,7 +1139,7 @@ class CVSDownloadStrategy < VCSDownloadStrategy
   private
 
   def env
-    { "PATH" => PATH.new("/usr/bin", Formula["cvs"].opt_bin, ENV["PATH"]) }
+    { "PATH" => PATH.new("/usr/bin", Formula["cvs"].opt_bin, ENV.fetch("PATH")) }
   end
 
   sig { returns(String) }
@@ -1218,7 +1214,7 @@ class MercurialDownloadStrategy < VCSDownloadStrategy
   private
 
   def env
-    { "PATH" => PATH.new(Formula["mercurial"].opt_bin, ENV["PATH"]) }
+    { "PATH" => PATH.new(Formula["mercurial"].opt_bin, ENV.fetch("PATH")) }
   end
 
   sig { returns(String) }
@@ -1284,7 +1280,7 @@ class BazaarDownloadStrategy < VCSDownloadStrategy
 
   def env
     {
-      "PATH"     => PATH.new(Formula["bazaar"].opt_bin, ENV["PATH"]),
+      "PATH"     => PATH.new(Formula["bazaar"].opt_bin, ENV.fetch("PATH")),
       "BZR_HOME" => HOMEBREW_TEMP,
     }
   end
@@ -1349,7 +1345,7 @@ class FossilDownloadStrategy < VCSDownloadStrategy
   private
 
   def env
-    { "PATH" => PATH.new(Formula["fossil"].opt_bin, ENV["PATH"]) }
+    { "PATH" => PATH.new(Formula["fossil"].opt_bin, ENV.fetch("PATH")) }
   end
 
   sig { returns(String) }
@@ -1398,18 +1394,18 @@ class DownloadStrategyDetector
     when %r{^https?://www\.apache\.org/dyn/closer\.cgi},
          %r{^https?://www\.apache\.org/dyn/closer\.lua}
       CurlApacheMirrorDownloadStrategy
-    when %r{^https?://(.+?\.)?googlecode\.com/svn},
+    when %r{^https?://([A-Za-z0-9\-.]+\.)?googlecode\.com/svn},
          %r{^https?://svn\.},
          %r{^svn://},
          %r{^svn\+http://},
          %r{^http://svn\.apache\.org/repos/},
-         %r{^https?://(.+?\.)?sourceforge\.net/svnroot/}
+         %r{^https?://([A-Za-z0-9\-.]+\.)?sourceforge\.net/svnroot/}
       SubversionDownloadStrategy
     when %r{^cvs://}
       CVSDownloadStrategy
     when %r{^hg://},
-         %r{^https?://(.+?\.)?googlecode\.com/hg},
-         %r{^https?://(.+?\.)?sourceforge\.net/hgweb/}
+         %r{^https?://([A-Za-z0-9\-.]+\.)?googlecode\.com/hg},
+         %r{^https?://([A-Za-z0-9\-.]+\.)?sourceforge\.net/hgweb/}
       MercurialDownloadStrategy
     when %r{^bzr://}
       BazaarDownloadStrategy

@@ -193,7 +193,7 @@ module Homebrew
       raise UsageError, "cannot specify --cask with --json=v1!" if args.cask?
 
       formulae = if args.all?
-        Formula.sort
+        Formula.all.sort
       elsif args.installed?
         Formula.installed.sort
       else
@@ -207,7 +207,7 @@ module Homebrew
       end
     when :v2
       formulae, casks = if args.all?
-        [Formula.sort, Cask::Cask.all.sort_by(&:full_name)]
+        [Formula.all.sort, Cask::Cask.all.sort_by(&:full_name)]
       elsif args.installed?
         [Formula.installed.sort, Cask::Caskroom.casks.sort_by(&:full_name)]
       else
@@ -252,16 +252,7 @@ module Homebrew
   def info_formula(f, args:)
     specs = []
 
-    if Homebrew::EnvConfig.install_from_api? && Homebrew::API::Bottle.available?(f.name)
-      info = Homebrew::API::Bottle.fetch(f.name)
-
-      latest_version = info["pkg_version"].split("_").first
-      bottle_exists = info["bottles"].key?(Utils::Bottles.tag.to_s) || info["bottles"].key?("all")
-
-      s = "stable #{latest_version}"
-      s += " (bottled)" if bottle_exists
-      specs << s
-    elsif (stable = f.stable)
+    if (stable = f.stable)
       s = "stable #{stable.version}"
       s += " (bottled)" if stable.bottled? && f.pour_bottle?
       specs << s

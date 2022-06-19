@@ -29,7 +29,7 @@ module Cask
 
     def initialize(cask, command: SystemCommand, force: false,
                    skip_cask_deps: false, binaries: true, verbose: false,
-                   require_sha: false, upgrade: false,
+                   zap: false, require_sha: false, upgrade: false,
                    installed_as_dependency: false, quarantine: true,
                    verify_download_integrity: true, quiet: false)
       @cask = cask
@@ -38,6 +38,7 @@ module Cask
       @skip_cask_deps = skip_cask_deps
       @binaries = binaries
       @verbose = verbose
+      @zap = zap
       @require_sha = require_sha
       @reinstall = false
       @upgrade = upgrade
@@ -48,7 +49,7 @@ module Cask
     end
 
     attr_predicate :binaries?, :force?, :skip_cask_deps?, :require_sha?,
-                   :reinstall?, :upgrade?, :verbose?, :installed_as_dependency?,
+                   :reinstall?, :upgrade?, :verbose?, :zap?, :installed_as_dependency?,
                    :quarantine?, :quiet?
 
     def self.caveats(cask)
@@ -154,10 +155,15 @@ module Cask
 
       # use the same cask file that was used for installation, if possible
       installed_caskfile = @cask.installed_caskfile
-      installed_cask = installed_caskfile.exist? ? CaskLoader.load(installed_caskfile) : @cask
+      installed_cask = begin
+        installed_caskfile.exist? ? CaskLoader.load(installed_caskfile) : @cask
+      rescue CaskInvalidError # could be thrown by call to CaskLoader#load with outdated caskfile
+        @cask # default
+      end
 
       # Always force uninstallation, ignore method parameter
-      Installer.new(installed_cask, verbose: verbose?, force: true, upgrade: upgrade?).uninstall
+      cask_installer = Installer.new(installed_cask, verbose: verbose?, force: true, upgrade: upgrade?)
+      zap? ? cask_installer.zap : cask_installer.uninstall
     end
 
     sig { returns(String) }
@@ -175,8 +181,9 @@ module Cask
 
     sig { params(quiet: T.nilable(T::Boolean), timeout: T.nilable(T.any(Integer, Float))).returns(Pathname) }
     def download(quiet: nil, timeout: nil)
-      @download ||= downloader.fetch(quiet: quiet, verify_download_integrity: @verify_download_integrity,
-                                     timeout: timeout)
+      # Store cask download path in cask to prevent multiple downloads in a row when checking if it's outdated
+      @cask.download ||= downloader.fetch(quiet: quiet, verify_download_integrity: @verify_download_integrity,
+                                          timeout: timeout)
     end
 
     def verify_has_sha
@@ -242,6 +249,7 @@ module Cask
       end
 
       save_config_file
+      save_download_sha if @cask.version.latest?
     rescue => e
       begin
         already_installed_artifacts.each do |artifact|
@@ -388,10 +396,17 @@ module Cask
       @cask.config_path.atomic_write(@cask.config.to_json)
     end
 
+    def save_download_sha
+      @cask.download_sha_path.atomic_write(@cask.new_download_sha) if @cask.checksumable?
+    end
+
     def uninstall
       oh1 "Uninstalling Cask #{Formatter.identifier(@cask)}"
       uninstall_artifacts(clear: true)
-      remove_config_file if !reinstall? && !upgrade?
+      if !reinstall? && !upgrade?
+        remove_download_sha
+        remove_config_file
+      end
       purge_versioned_files
       purge_caskroom_path if force?
     end
@@ -399,6 +414,10 @@ module Cask
     def remove_config_file
       FileUtils.rm_f @cask.config_path
       @cask.config_path.parent.rmdir_if_possible
+    end
+
+    def remove_download_sha
+      FileUtils.rm_f @cask.download_sha_path if @cask.download_sha_path.exist?
     end
 
     def start_upgrade

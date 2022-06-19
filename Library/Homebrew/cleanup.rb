@@ -363,15 +363,13 @@ module Homebrew
       return unless path.exist?
       return unless @cleaned_up_paths.add?(path)
 
-      disk_usage = path.disk_usage
+      @disk_cleanup_size += path.disk_usage
 
       if dry_run?
         puts "Would remove: #{path} (#{path.abv})"
-        @disk_cleanup_size += disk_usage
       else
         puts "Removing: #{path}... (#{path.abv})"
         yield
-        @disk_cleanup_size += disk_usage - path.disk_usage
       end
     end
 
@@ -393,7 +391,7 @@ module Homebrew
     end
 
     def cleanup_portable_ruby
-      rubies = [which("ruby"), which("ruby", ENV["HOMEBREW_PATH"])].compact
+      rubies = [which("ruby"), which("ruby", ORIGINAL_PATHS)].compact
       system_ruby = Pathname.new("/usr/bin/ruby")
       rubies << system_ruby if system_ruby.exist?
 

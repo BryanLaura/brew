@@ -95,6 +95,8 @@ class FormulaOrCaskUnavailableError < RuntimeError
 
   sig { returns(String) }
   def did_you_mean
+    require "formula"
+
     similar_formula_names = Formula.fuzzy_search(name)
     return "" if similar_formula_names.blank?
 
@@ -229,13 +231,6 @@ class TapFormulaUnavailableError < FormulaUnavailableError
     s = super
     s += "\nPlease tap it and then try again: brew tap #{tap}" unless tap.installed?
     s
-  end
-end
-
-# Raised when a formula in a the core tap is unavailable.
-class CoreTapFormulaUnavailableError < TapFormulaUnavailableError
-  def initialize(name)
-    super CoreTap.instance, name
   end
 end
 
@@ -479,7 +474,7 @@ class BuildError < RuntimeError
     @cmd = cmd
     @args = args
     @env = env
-    pretty_args = Array(args).map { |arg| arg.to_s.gsub " ", "\\ " }.join(" ")
+    pretty_args = Array(args).map { |arg| arg.to_s.gsub(/[\\ ]/, "\\\\\\0") }.join(" ")
     super "Failed executing: #{cmd} #{pretty_args}".strip
   end
 

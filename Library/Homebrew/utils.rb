@@ -160,7 +160,11 @@ module Kernel
     exit 1
   end
 
-  def odeprecated(method, replacement = nil, disable: false, disable_on: nil, caller: send(:caller))
+  def odeprecated(method, replacement = nil,
+                  disable:                false,
+                  disable_on:             nil,
+                  disable_for_developers: true,
+                  caller:                 send(:caller))
     replacement_message = if replacement
       "Use #{replacement} instead."
     else
@@ -219,7 +223,8 @@ module Kernel
     message << tap_message if tap_message
     message.freeze
 
-    if Homebrew::EnvConfig.developer? || disable || Homebrew.raise_deprecation_exceptions?
+    disable = true if disable_for_developers && Homebrew::EnvConfig.developer?
+    if disable || Homebrew.raise_deprecation_exceptions?
       exception = MethodDeprecatedError.new(message)
       exception.set_backtrace(backtrace)
       raise exception
@@ -240,6 +245,16 @@ module Kernel
       Formatter.success("#{Tty.bold}#{f} (installed)#{Tty.reset}")
     else
       "#{Tty.bold}#{f} #{Formatter.success("✔")}#{Tty.reset}"
+    end
+  end
+
+  def pretty_outdated(f)
+    if !$stdout.tty?
+      f.to_s
+    elsif Homebrew::EnvConfig.no_emoji?
+      Formatter.error("#{Tty.bold}#{f} (outdated)#{Tty.reset}")
+    else
+      "#{Tty.bold}#{f} #{Formatter.warning("⚠")}#{Tty.reset}"
     end
   end
 
@@ -276,12 +291,12 @@ module Kernel
       ENV["HOMEBREW_DEBUG_INSTALL"] = f.full_name
     end
 
-    if ENV["SHELL"].include?("zsh") && (home = ENV["HOME"])&.start_with?(HOMEBREW_TEMP.resolved_path.to_s)
+    if Utils::Shell.preferred == :zsh && (home = Dir.home).start_with?(HOMEBREW_TEMP.resolved_path.to_s)
       FileUtils.mkdir_p home
       FileUtils.touch "#{home}/.zshrc"
     end
 
-    Process.wait fork { exec ENV.fetch("SHELL") }
+    Process.wait fork { exec preferred_shell }
 
     return if $CHILD_STATUS.success?
     raise "Aborted due to non-zero exit status (#{$CHILD_STATUS.exitstatus})" if $CHILD_STATUS.exited?
@@ -290,7 +305,7 @@ module Kernel
   end
 
   def with_homebrew_path(&block)
-    with_env(PATH: PATH.new(ENV["HOMEBREW_PATH"]), &block)
+    with_env(PATH: PATH.new(ORIGINAL_PATHS), &block)
   end
 
   def with_custom_locale(locale, &block)
@@ -314,7 +329,7 @@ module Kernel
     end
   end
 
-  def which(cmd, path = ENV["PATH"])
+  def which(cmd, path = ENV.fetch("PATH"))
     PATH.new(path).each do |p|
       begin
         pcmd = File.expand_path(cmd, p)
@@ -328,7 +343,7 @@ module Kernel
     nil
   end
 
-  def which_all(cmd, path = ENV["PATH"])
+  def which_all(cmd, path = ENV.fetch("PATH"))
     PATH.new(path).map do |p|
       begin
         pcmd = File.expand_path(cmd, p)
@@ -347,7 +362,7 @@ module Kernel
 
     # Find Atom, Sublime Text, VS Code, Textmate, BBEdit / TextWrangler, or vim
     editor = %w[atom subl code mate edit vim].find do |candidate|
-      candidate if which(candidate, ENV["HOMEBREW_PATH"])
+      candidate if which(candidate, ORIGINAL_PATHS)
     end
     editor ||= "vim"
 
@@ -372,7 +387,7 @@ module Kernel
 
     ENV["DISPLAY"] = Homebrew::EnvConfig.display
 
-    with_env(DBUS_SESSION_BUS_ADDRESS: ENV["HOMEBREW_DBUS_SESSION_BUS_ADDRESS"]) do
+    with_env(DBUS_SESSION_BUS_ADDRESS: ENV.fetch("HOMEBREW_DBUS_SESSION_BUS_ADDRESS", nil)) do
       safe_system(browser, *args)
     end
   end
@@ -484,7 +499,7 @@ module Kernel
 
     executable = [
       which(name),
-      which(name, ENV["HOMEBREW_PATH"]),
+      which(name, ORIGINAL_PATHS),
       HOMEBREW_PREFIX/"bin/#{name}",
     ].compact.first
     return executable if executable.exist?
@@ -493,11 +508,7 @@ module Kernel
   end
 
   def paths
-    @paths ||= PATH.new(ENV["HOMEBREW_PATH"]).map do |p|
-      File.expand_path(p).chomp("/")
-    rescue ArgumentError
-      onoe "The following PATH component is invalid: #{p}"
-    end.uniq.compact
+    @paths ||= ORIGINAL_PATHS.uniq.map(&:to_s)
   end
 
   def parse_author!(author)
@@ -591,6 +602,11 @@ module Kernel
     ensure
       ENV.update(old_values)
     end
+  end
+
+  sig { returns(String) }
+  def preferred_shell
+    ENV.fetch("SHELL", "/bin/sh")
   end
 
   sig { returns(String) }

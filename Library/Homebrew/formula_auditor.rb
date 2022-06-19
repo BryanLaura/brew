@@ -68,31 +68,42 @@ module Homebrew
           unversioned_name = unversioned_formula.basename(".rb")
           problem "#{formula} is versioned but no #{unversioned_name} formula exists"
         end
-      elsif @build_stable &&
-            formula.stable? &&
+      elsif formula.stable? &&
             !@versioned_formula &&
             (versioned_formulae = formula.versioned_formulae - [formula]) &&
             versioned_formulae.present?
-        versioned_aliases = formula.aliases.grep(/.@\d/)
+        versioned_aliases, unversioned_aliases = formula.aliases.partition { |a| a =~ /.@\d/ }
         _, last_alias_version = versioned_formulae.map(&:name).last.split("@")
+
         alias_name_major = "#{formula.name}@#{formula.version.major}"
-        alias_name_major_minor = "#{alias_name_major}.#{formula.version.minor}"
+        alias_name_major_minor = "#{formula.name}@#{formula.version.major_minor}"
         alias_name = if last_alias_version.split(".").length == 1
           alias_name_major
         else
           alias_name_major_minor
         end
-        valid_alias_names = [alias_name_major, alias_name_major_minor]
+        valid_main_alias_names = [alias_name_major, alias_name_major_minor].uniq
 
-        unless @core_tap
-          versioned_aliases.map! { |a| "#{formula.tap}/#{a}" }
-          valid_alias_names.map! { |a| "#{formula.tap}/#{a}" }
+        # Also accept versioned aliases with names of other aliases, but do not require them.
+        valid_other_alias_names = unversioned_aliases.flat_map do |name|
+          %W[
+            #{name}@#{formula.version.major}
+            #{name}@#{formula.version.major_minor}
+          ].uniq
         end
 
-        valid_versioned_aliases = versioned_aliases & valid_alias_names
-        invalid_versioned_aliases = versioned_aliases - valid_alias_names
+        unless @core_tap
+          [versioned_aliases, valid_main_alias_names, valid_other_alias_names].each do |array|
+            array.map! { |a| "#{formula.tap}/#{a}" }
+          end
+        end
 
-        if valid_versioned_aliases.empty?
+        valid_versioned_aliases = versioned_aliases & valid_main_alias_names
+        invalid_versioned_aliases = versioned_aliases - valid_main_alias_names - valid_other_alias_names
+
+        latest_versioned_formula = versioned_formulae.map(&:name).first
+
+        if valid_versioned_aliases.empty? && alias_name != latest_versioned_formula
           if formula.tap
             problem <<~EOS
               Formula has other versions so create a versioned alias:
@@ -470,25 +481,9 @@ module Homebrew
       return unless @new_formula_inclusive
       return unless @core_tap
 
-      return if formula.bottle_disabled?
-
       return unless formula.bottle_defined?
 
       new_formula_problem "New formulae in homebrew/core should not have a `bottle do` block"
-    end
-
-    def audit_bottle_disabled
-      return unless formula.bottle_disabled?
-
-      if !formula.bottle_disable_reason.valid?
-        problem "Unrecognized bottle modifier"
-      elsif @core_tap
-        if formula.bottle_unneeded?
-          problem "Formulae in homebrew/core should not use `bottle :unneeded`"
-        else
-          problem "Formulae in homebrew/core should not use `bottle :disabled`"
-        end
-      end
     end
 
     def audit_github_repository_archived

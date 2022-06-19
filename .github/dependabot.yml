@@ -11,19 +11,9 @@ updates:
       - dependency-name: dessant/lock-threads
 
   - package-ecosystem: bundler
-    directory: /docs
-    schedule:
-      interval: weekly
-    allow:
-      - dependency-type: all
-    versioning-strategy: lockfile-only
-
-  - package-ecosystem: bundler
     directory: /Library/Homebrew
     schedule:
       interval: daily
     allow:
       - dependency-type: all
-    ignore:
-      - dependency-name: sorbet-runtime
     versioning-strategy: lockfile-only

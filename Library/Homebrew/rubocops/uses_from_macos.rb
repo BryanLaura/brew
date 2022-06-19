@@ -11,6 +11,7 @@ module RuboCop
         PROVIDED_BY_MACOS_FORMULAE = %w[
           apr
           bc
+          berkeley-db
           bison
           bzip2
           cups
@@ -31,6 +32,7 @@ module RuboCop
           libiconv
           libpcap
           libressl
+          libxcrypt
           libxml2
           libxslt
           llvm

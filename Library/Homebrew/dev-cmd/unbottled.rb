@@ -20,10 +20,11 @@ module Homebrew
              description: "Use the specified bottle tag (e.g. `big_sur`) instead of the current OS."
       switch "--dependents",
              description: "Skip getting analytics data and sort by number of dependents instead."
-      switch "--total",
+      switch "--all", "--total",
              description: "Print the number of unbottled and total formulae."
 
-      conflicts "--dependents", "--total"
+      conflicts "--dependents", "--all"
+      conflicts "--installed", "--all"
 
       named_args :formula
     end
@@ -41,10 +42,12 @@ module Homebrew
       Utils::Bottles.tag
     end
 
+    # TODO: 3.6.0: odeprecate args.total?
+
     if args.named.blank?
       ohai "Getting formulae..."
-    elsif args.total?
-      raise UsageError, "cannot specify `<formula>` and `--total`."
+    elsif args.all?
+      raise UsageError, "cannot specify `<formula>` and `--all`/`--total`."
     end
 
     formulae, all_formulae, formula_installs =
@@ -59,7 +62,7 @@ module Homebrew
       end.reverse
     end
 
-    if args.total?
+    if args.all?
       output_total(formulae)
       return
     end
@@ -78,9 +81,10 @@ module Homebrew
   def formulae_all_installs_from_args(args)
     if args.named.present?
       formulae = all_formulae = args.named.to_formulae
-    elsif args.total?
+    elsif args.all?
       formulae = all_formulae = Formula.all
     elsif args.dependents?
+      # TODO: 3.6.0: odeprecate not specifying args.all? for args.dependents?
       formulae = all_formulae = Formula.all
 
       @sort = " (sorted by number of dependents)"
@@ -110,7 +114,7 @@ module Homebrew
       end.compact
       @sort = " (sorted by installs in the last 90 days; top 10,000 only)"
 
-      all_formulae = Formula
+      all_formulae = Formula.all
     end
 
     [formulae, all_formulae, formula_installs]
@@ -143,7 +147,6 @@ module Homebrew
 
     formulae.each do |f|
       next if f.bottle_specification.tag?(@bottle_tag)
-      next if f.bottle_unneeded?
 
       unbottled_formulae += 1
     end
@@ -165,7 +168,7 @@ module Homebrew
 
       requirements = f.recursive_requirements
       if @bottle_tag.linux?
-        if requirements.any?(MacOSRequirement)
+        if requirements.any? { |r| r.is_a?(MacOSRequirement) && !r.version }
           puts "#{Tty.bold}#{Tty.red}#{name}#{Tty.reset}: requires macOS" if any_named_args
           next
         end
@@ -196,23 +199,13 @@ module Homebrew
         end
       end
 
-      if f.bottle_unneeded? || f.bottle_disabled?
-        reason = if f.bottle_unneeded?
-          "unneeded"
-        else
-          "disabled"
-        end
-        puts "#{Tty.bold}#{Tty.red}#{name}#{Tty.reset}: bottle #{reason}" if any_named_args
-        next
-      end
-
       if f.bottle_specification.tag?(@bottle_tag, no_older_versions: true)
         puts "#{Tty.bold}#{Tty.green}#{name}#{Tty.reset}: already bottled" if any_named_args
         next
       end
 
       deps = Array(deps_hash[f.name]).reject do |dep|
-        dep.bottle_specification.tag?(@bottle_tag, no_older_versions: true) || dep.bottle_unneeded?
+        dep.bottle_specification.tag?(@bottle_tag, no_older_versions: true)
       end
 
       if deps.blank?

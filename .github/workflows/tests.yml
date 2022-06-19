@@ -107,7 +107,6 @@ jobs:
           brew tap homebrew/cask-versions
           brew tap homebrew/command-not-found
           brew tap homebrew/formula-analytics
-          brew tap homebrew/linux-dev
           brew tap homebrew/portable-ruby
           brew tap homebrew/services
 
@@ -136,7 +135,6 @@ jobs:
                                          homebrew/autoupdate\
                                          homebrew/command-not-found \
                                          homebrew/formula-analytics \
-                                         homebrew/linux-dev \
                                          homebrew/portable-ruby
 
       - name: Run brew style on cask taps
@@ -240,7 +238,7 @@ jobs:
         env:
           HOMEBREW_GITHUB_API_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - uses: codecov/codecov-action@f32b3a3741e1053eb607407145bc9619351dc93b
+      - uses: codecov/codecov-action@81cd2dc8148241f03f5839d295e000b8f761e378
         with:
           files: Library/Homebrew/test/coverage/coverage.xml
 
@@ -341,6 +339,6 @@ jobs:
 
       - run: brew test-bot --only-formulae --test-default-formula
 
-      - uses: codecov/codecov-action@f32b3a3741e1053eb607407145bc9619351dc93b
+      - uses: codecov/codecov-action@81cd2dc8148241f03f5839d295e000b8f761e378
         with:
           files: Library/Homebrew/test/coverage/coverage.xml

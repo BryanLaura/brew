@@ -661,25 +661,34 @@ Generally we'd rather you were specific about what files or directories need to 
 
 #### Variables for directory locations
 
-| Name                  | Default                                        | Example                                           |
-|-----------------------|------------------------------------------------|---------------------------------------------------|
-| **`HOMEBREW_PREFIX`** | `/usr/local`                                   |                                                   |
-| **`prefix`**          | `#{HOMEBREW_PREFIX}/Cellar/#{name}/#{version}` | `/usr/local/Cellar/foo/0.1`                       |
-| **`opt_prefix`**      | `#{HOMEBREW_PREFIX}/opt/#{name}`               | `/usr/local/opt/foo`                              |
-| **`bin`**             | `#{prefix}/bin`                                | `/usr/local/Cellar/foo/0.1/bin`                   |
-| **`doc`**             | `#{prefix}/share/doc/foo`                      | `/usr/local/Cellar/foo/0.1/share/doc/foo`         |
-| **`include`**         | `#{prefix}/include`                            | `/usr/local/Cellar/foo/0.1/include`               |
-| **`info`**            | `#{prefix}/share/info`                         | `/usr/local/Cellar/foo/0.1/share/info`            |
-| **`lib`**             | `#{prefix}/lib`                                | `/usr/local/Cellar/foo/0.1/lib`                   |
-| **`libexec`**         | `#{prefix}/libexec`                            | `/usr/local/Cellar/foo/0.1/libexec`               |
-| **`man`**             | `#{prefix}/share/man`                          | `/usr/local/Cellar/foo/0.1/share/man`             |
-| **`man[1-8]`**        | `#{prefix}/share/man/man[1-8]`                 | `/usr/local/Cellar/foo/0.1/share/man/man[1-8]`    |
-| **`sbin`**            | `#{prefix}/sbin`                               | `/usr/local/Cellar/foo/0.1/sbin`                  |
-| **`share`**           | `#{prefix}/share`                              | `/usr/local/Cellar/foo/0.1/share`                 |
-| **`pkgshare`**        | `#{prefix}/share/foo`                          | `/usr/local/Cellar/foo/0.1/share/foo`             |
-| **`etc`**             | `#{HOMEBREW_PREFIX}/etc`                       | `/usr/local/etc`                                  |
-| **`var`**             | `#{HOMEBREW_PREFIX}/var`                       | `/usr/local/var`                                  |
-| **`buildpath`**       | A temporary directory somewhere on your system | `/private/tmp/[formula-name]-0q2b/[formula-name]` |
+| Name                  | Default                                        | Example                                                     |
+|-----------------------|------------------------------------------------|-------------------------------------------------------------|
+| **`HOMEBREW_PREFIX`** | `/usr/local`                                   |                                                             |
+| **`prefix`**          | `#{HOMEBREW_PREFIX}/Cellar/#{name}/#{version}` | `/usr/local/Cellar/foo/0.1`                                 |
+| **`opt_prefix`**      | `#{HOMEBREW_PREFIX}/opt/#{name}`               | `/usr/local/opt/foo`                                        |
+| **`bin`**             | `#{prefix}/bin`                                | `/usr/local/Cellar/foo/0.1/bin`                             |
+| **`doc`**             | `#{prefix}/share/doc/#{name}`                  | `/usr/local/Cellar/foo/0.1/share/doc/foo`                   |
+| **`include`**         | `#{prefix}/include`                            | `/usr/local/Cellar/foo/0.1/include`                         |
+| **`info`**            | `#{prefix}/share/info`                         | `/usr/local/Cellar/foo/0.1/share/info`                      |
+| **`lib`**             | `#{prefix}/lib`                                | `/usr/local/Cellar/foo/0.1/lib`                             |
+| **`libexec`**         | `#{prefix}/libexec`                            | `/usr/local/Cellar/foo/0.1/libexec`                         |
+| **`man`**             | `#{prefix}/share/man`                          | `/usr/local/Cellar/foo/0.1/share/man`                       |
+| **`man[1-8]`**        | `#{prefix}/share/man/man[1-8]`                 | `/usr/local/Cellar/foo/0.1/share/man/man[1-8]`              |
+| **`sbin`**            | `#{prefix}/sbin`                               | `/usr/local/Cellar/foo/0.1/sbin`                            |
+| **`share`**           | `#{prefix}/share`                              | `/usr/local/Cellar/foo/0.1/share`                           |
+| **`pkgshare`**        | `#{prefix}/share/#{name}`                      | `/usr/local/Cellar/foo/0.1/share/foo`                       |
+| **`elisp`**           | `#{prefix}/share/emacs/site-lisp/#{name}`      | `/usr/local/Cellar/foo/0.1/share/emacs/site-lisp/foo`       |
+| **`frameworks`**      | `#{prefix}/Frameworks`                         | `/usr/local/Cellar/foo/0.1/Frameworks`                      |
+| **`kext_prefix`**     | `#{prefix}/Library/Extensions`                 | `/usr/local/Cellar/foo/0.1/Library/Extensions`              |
+| **`zsh_function`**    | `#{prefix}/share/zsh/site-functions`           | `/usr/local/Cellar/foo/0.1/share/zsh/site-functions`        |
+| **`fish_function`**   | `#{prefix}/share/fish/vendor_functions`        | `/usr/local/Cellar/foo/0.1/share/fish/vendor_functions`     |
+| **`bash_completion`** | `#{prefix}/etc/bash_completion.d`              | `/usr/local/Cellar/foo/0.1/etc/bash_completion.d`           |
+| **`zsh_completion`**  | `#{prefix}/share/zsh/site-functions`           | `/usr/local/Cellar/foo/0.1/share/zsh/site-functions`        |
+| **`fish_completion`** | `#{prefix}/share/fish/vendor_completions.d`    | `/usr/local/Cellar/foo/0.1/share/fish/vendor_completions.d` |
+| **`etc`**             | `#{HOMEBREW_PREFIX}/etc`                       | `/usr/local/etc`                                            |
+| **`pkgetc`**          | `#{HOMEBREW_PREFIX}/etc/#{name}`               | `/usr/local/etc/foo`                                        |
+| **`var`**             | `#{HOMEBREW_PREFIX}/var`                       | `/usr/local/var`                                            |
+| **`buildpath`**       | A temporary directory somewhere on your system | `/private/tmp/[formula-name]-0q2b/[formula-name]`           |
 
 These can be used, for instance, in code such as
 
@@ -799,6 +808,7 @@ The only required field in a `service` block is the `run` field to indicate what
 | `restart_delay`         | -            |  yes  |  yes  | The delay before restarting a process                                                    |
 | `process_type`          | -            |  yes  | no-op | The type of process to manage, `:background`, `:standard`, `:interactive` or `:adaptive` |
 | `macos_legacy_timers`   | -            |  yes  | no-op | Timers created by launchd jobs are coalesced unless this is set                          |
+| `sockets`               | -            |  yes  | no-op | A socket that is created as an accesspoint to the service                                |
 
 For services that start and keep running alive you can use the default `run_type :` like so:
 ```ruby
@@ -835,6 +845,55 @@ This method will set the path to `#{HOMEBREW_PREFIX}/bin:#{HOMEBREW_PREFIX}/sbin
     environment_variables PATH: std_service_path_env
   end
 ```
+
+#### KeepAlive options
+The standard options, keep alive regardless of any status or circomstances
+```rb
+  service do
+    run [opt_bin/"beanstalkd", "test"]
+    keep_alive true # or false
+  end
+```
+
+Same as above in hash form
+```rb
+  service do
+    run [opt_bin/"beanstalkd", "test"]
+    keep_alive { always: true }
+  end
+```
+
+Keep alive until the job exits with a non-zero return code
+```rb
+  service do
+    run [opt_bin/"beanstalkd", "test"]
+    keep_alive { succesful_exit: true }
+  end
+```
+
+Keep alive only if the job crashed
+```rb
+  service do
+    run [opt_bin/"beanstalkd", "test"]
+    keep_alive { crashed: true }
+  end
+```
+
+Keep alive as long as a file exists
+```rb
+  service do
+    run [opt_bin/"beanstalkd", "test"]
+    keep_alive { path: "/some/path" }
+  end
+```
+
+#### Socket format
+The sockets method accepts a formatted socket definition as `<type>://<host>:<port>`.
+- `type`: `udp` or `tcp`
+- `host`: The host to run the socket on. For example `0.0.0.0`
+- `port`: The port the socket should listen on.
+
+Please note that sockets will be accessible on IPv4 and IPv6 addresses by default.
 
 ### Using environment variables
 

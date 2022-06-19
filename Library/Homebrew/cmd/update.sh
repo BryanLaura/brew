@@ -3,8 +3,9 @@
 #:  Fetch the newest version of Homebrew and all formulae from GitHub using `git`(1) and perform any necessary migrations.
 #:
 #:        --merge                      Use `git merge` to apply updates (rather than `git rebase`).
-#:        --preinstall                 Run on auto-updates (e.g. before `brew install`). Skips some slower steps.
+#:        --auto-update                Run on auto-updates (e.g. before `brew install`). Skips some slower steps.
 #:    -f, --force                      Always do a slower, full update check (even if unnecessary).
+#:    -q, --quiet                      Make some output more quiet
 #:    -v, --verbose                    Print the directories checked and `git` operations performed.
 #:    -d, --debug                      Display a trace of all shell commands as they are executed.
 #:    -h, --help                       Show this message.
@@ -336,7 +337,7 @@ homebrew-update() {
       --merge) HOMEBREW_MERGE=1 ;;
       --force) HOMEBREW_UPDATE_FORCE=1 ;;
       --simulate-from-current-branch) HOMEBREW_SIMULATE_FROM_CURRENT_BRANCH=1 ;;
-      --preinstall) export HOMEBREW_UPDATE_PREINSTALL=1 ;;
+      --auto-update) export HOMEBREW_UPDATE_AUTO=1 ;;
       --*) ;;
       -*)
         [[ "${option}" == *v* ]] && HOMEBREW_VERBOSE=1
@@ -546,7 +547,7 @@ EOS
   for DIR in "${HOMEBREW_REPOSITORY}" "${HOMEBREW_LIBRARY}"/Taps/*/*
   do
     if [[ -n "${HOMEBREW_INSTALL_FROM_API}" ]] &&
-       [[ -n "${HOMEBREW_UPDATE_PREINSTALL}" ]] &&
+       [[ -n "${HOMEBREW_UPDATE_AUTO}" ]] &&
        [[ "${DIR}" == "${HOMEBREW_CORE_REPOSITORY}" ]]
     then
       continue
@@ -554,6 +555,12 @@ EOS
 
     [[ -d "${DIR}/.git" ]] || continue
     cd "${DIR}" || continue
+
+    if ! git config --local --get remote.origin.url &>/dev/null
+    then
+      opoo "No remote 'origin' in ${DIR}, skipping update!"
+      continue
+    fi
 
     if [[ -n "${HOMEBREW_VERBOSE}" ]]
     then
@@ -584,7 +591,7 @@ EOS
     (
       UPSTREAM_REPOSITORY_URL="$(git config remote.origin.url)"
 
-      # HOMEBREW_UPDATE_FORCE and HOMEBREW_UPDATE_PREINSTALL aren't modified here so ignore subshell warning.
+      # HOMEBREW_UPDATE_FORCE and HOMEBREW_UPDATE_AUTO aren't modified here so ignore subshell warning.
       # shellcheck disable=SC2030
       if [[ "${UPSTREAM_REPOSITORY_URL}" == "https://github.com/"* ]]
       then
@@ -623,7 +630,7 @@ EOS
         # Touch FETCH_HEAD to confirm we've checked for an update.
         [[ -f "${DIR}/.git/FETCH_HEAD" ]] && touch "${DIR}/.git/FETCH_HEAD"
         [[ -z "${HOMEBREW_UPDATE_FORCE}" ]] && [[ "${UPSTREAM_SHA_HTTP_CODE}" == "304" ]] && exit
-      elif [[ -n "${HOMEBREW_UPDATE_PREINSTALL}" ]]
+      elif [[ -n "${HOMEBREW_UPDATE_AUTO}" ]]
       then
         FORCE_AUTO_UPDATE="$(git config homebrew.forceautoupdate 2>/dev/null || echo "false")"
         if [[ "${FORCE_AUTO_UPDATE}" != "true" ]]
@@ -643,7 +650,7 @@ EOS
       local tmp_failure_file="${HOMEBREW_REPOSITORY}/.git/TMP_FETCH_FAILURES"
       rm -f "${tmp_failure_file}"
 
-      if [[ -n "${HOMEBREW_UPDATE_PREINSTALL}" ]]
+      if [[ -n "${HOMEBREW_UPDATE_AUTO}" ]]
       then
         git fetch --tags --force "${QUIET_ARGS[@]}" origin \
           "refs/heads/${UPSTREAM_BRANCH_DIR}:refs/remotes/origin/${UPSTREAM_BRANCH_DIR}" 2>/dev/null
@@ -694,10 +701,10 @@ EOS
 
   for DIR in "${HOMEBREW_REPOSITORY}" "${HOMEBREW_LIBRARY}"/Taps/*/*
   do
-    # HOMEBREW_UPDATE_PREINSTALL wasn't modified in subshell.
+    # HOMEBREW_UPDATE_AUTO wasn't modified in subshell.
     # shellcheck disable=SC2031
     if [[ -n "${HOMEBREW_INSTALL_FROM_API}" ]] &&
-       [[ -n "${HOMEBREW_UPDATE_PREINSTALL}" ]] &&
+       [[ -n "${HOMEBREW_UPDATE_AUTO}" ]] &&
        [[ "${DIR}" == "${HOMEBREW_CORE_REPOSITORY}" ||
           "${DIR}" == "${HOMEBREW_LIBRARY}/Taps/homebrew/homebrew-cask" ]]
     then
@@ -706,6 +713,11 @@ EOS
 
     [[ -d "${DIR}/.git" ]] || continue
     cd "${DIR}" || continue
+    if ! git config --local --get remote.origin.url &>/dev/null
+    then
+      # No need to display a (duplicate) warning here
+      continue
+    fi
 
     TAP_VAR="$(repo_var "${DIR}")"
     UPSTREAM_BRANCH_VAR="UPSTREAM_BRANCH${TAP_VAR}"
@@ -733,9 +745,23 @@ EOS
     fi
   done
 
+  if [[ -n "${HOMEBREW_INSTALL_FROM_API}" ]]
+  then
+    mkdir -p "${HOMEBREW_CACHE}/api"
+    # TODO: use --header If-Modified-Since
+    curl \
+      "${CURL_DISABLE_CURLRC_ARGS[@]}" \
+      --fail --compressed --silent --max-time 5 \
+      --location --remote-time --output "${HOMEBREW_CACHE}/api/formula.json" \
+      --user-agent "${HOMEBREW_USER_AGENT_CURL}" \
+      "https://formulae.brew.sh/api/formula.json"
+    # TODO: we probably want to print an error if this fails.
+    # TODO: set HOMEBREW_UPDATED or HOMEBREW_UPDATE_FAILED
+  fi
+
   safe_cd "${HOMEBREW_REPOSITORY}"
 
-  # HOMEBREW_UPDATE_PREINSTALL wasn't modified in subshell.
+  # HOMEBREW_UPDATE_AUTO wasn't modified in subshell.
   # shellcheck disable=SC2031
   if [[ -n "${HOMEBREW_UPDATED}" ]] ||
      [[ -n "${HOMEBREW_UPDATE_FAILED}" ]] ||
@@ -744,11 +770,11 @@ EOS
      [[ -n "${HOMEBREW_MIGRATE_LINUXBREW_FORMULAE}" ]] ||
      [[ -d "${HOMEBREW_LIBRARY}/LinkedKegs" ]] ||
      [[ ! -f "${HOMEBREW_CACHE}/all_commands_list.txt" ]] ||
-     [[ -n "${HOMEBREW_DEVELOPER}" && -z "${HOMEBREW_UPDATE_PREINSTALL}" ]]
+     [[ -n "${HOMEBREW_DEVELOPER}" && -z "${HOMEBREW_UPDATE_AUTO}" ]]
   then
     brew update-report "$@"
     return $?
-  elif [[ -z "${HOMEBREW_UPDATE_PREINSTALL}" && -z "${HOMEBREW_QUIET}" ]]
+  elif [[ -z "${HOMEBREW_UPDATE_AUTO}" && -z "${HOMEBREW_QUIET}" ]]
   then
     echo "Already up-to-date."
   fi

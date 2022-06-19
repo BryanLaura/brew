@@ -16,19 +16,34 @@ jobs:
     if: startsWith(github.repository, 'Homebrew/')
     runs-on: ubuntu-latest
     strategy:
+      fail-fast: false
       matrix:
-        version: ["16.04", "18.04", "20.04"]
+        version: ["16.04", "18.04", "20.04", "22.04"]
     steps:
       - name: Checkout
         uses: actions/checkout@main
         with:
           fetch-depth: 0
           persist-credentials: false
+
       - name: Fetch origin/master from Git
         run: git fetch origin master
 
       - name: Build Docker image
-        run: docker build -t brew --build-arg=version=${{matrix.version}} .
+        run: |
+          brew_version="$(git describe --tags --dirty --abbrev=7)"
+          echo "Building for Homebrew ${brew_version}"
+          docker build -t brew \
+               --build-arg=version=${{matrix.version}} \
+               --label org.opencontainers.image.created="$(date --rfc-3339=seconds --utc)" \
+               --label org.opencontainers.image.url="https://brew.sh" \
+               --label org.opencontainers.image.documentation="https://docs.brew.sh" \
+               --label org.opencontainers.image.source="https://github.com/${GITHUB_REPOSITORY}" \
+               --label org.opencontainers.image.version="${brew_version}" \
+               --label org.opencontainers.image.revision="${GITHUB_SHA}" \
+               --label org.opencontainers.image.vendor="${GITHUB_REPOSITORY_OWNER}" \
+               --label org.opencontainers.image.licenses="BSD-2-Clause" \
+               .
 
       - name: Run brew test-bot --only-setup
         run: docker run --rm brew brew test-bot --only-setup
@@ -54,7 +69,7 @@ jobs:
           docker push "homebrew/ubuntu${{matrix.version}}:latest"
 
       - name: Deploy the homebrew/brew Docker image to GitHub Packages and Docker Hub
-        if: startsWith(github.ref, 'refs/tags/') && matrix.version == '20.04'
+        if: startsWith(github.ref, 'refs/tags/') && matrix.version == '22.04'
         run: |
           docker tag brew "ghcr.io/homebrew/brew:${brew_version}"
           docker push "ghcr.io/homebrew/brew:${brew_version}"

@@ -216,6 +216,29 @@ describe Cask::Installer, :cask do
       m_subdir = caffeine.metadata_subdir(subdir_name, timestamp: :now, create: true)
       expect(caffeine.metadata_subdir(subdir_name, timestamp: :latest)).to eq(m_subdir)
     end
+
+    it "don't print cask installed message with --quiet option" do
+      caffeine = Cask::CaskLoader.load(cask_path("local-caffeine"))
+      expect {
+        described_class.new(caffeine, quiet: true).install
+      }.to output(nil).to_stdout
+    end
+
+    it "does NOT generate LATEST_DOWNLOAD_SHA256 file for installed Cask without version :latest" do
+      caffeine = Cask::CaskLoader.load(cask_path("local-caffeine"))
+
+      described_class.new(caffeine).install
+
+      expect(caffeine.download_sha_path).not_to be_a_file
+    end
+
+    it "generates and finds LATEST_DOWNLOAD_SHA256 file for installed Cask with version :latest" do
+      latest_cask = Cask::CaskLoader.load(cask_path("version-latest"))
+
+      described_class.new(latest_cask).install
+
+      expect(latest_cask.download_sha_path).to be_a_file
+    end
   end
 
   describe "uninstall" do
@@ -249,6 +272,22 @@ describe Cask::Installer, :cask do
       expect(Cask::Caskroom.path.join("local-caffeine", caffeine.version)).not_to be_a_directory
       expect(Cask::Caskroom.path.join("local-caffeine", mutated_version)).not_to be_a_directory
       expect(Cask::Caskroom.path.join("local-caffeine")).not_to be_a_directory
+    end
+  end
+
+  describe "uninstall_existing_cask" do
+    it "uninstalls when cask file is outdated" do
+      caffeine = Cask::CaskLoader.load(cask_path("local-caffeine"))
+      described_class.new(caffeine).install
+
+      expect(Cask::CaskLoader.load(cask_path("local-caffeine"))).to be_installed
+
+      expect(caffeine).to receive(:installed?).once.and_return(true)
+      outdate_caskfile = cask_path("invalid/invalid-depends-on-macos-bad-release")
+      expect(caffeine).to receive(:installed_caskfile).once.and_return(outdate_caskfile)
+      described_class.new(caffeine).uninstall_existing_cask
+
+      expect(Cask::CaskLoader.load(cask_path("local-caffeine"))).not_to be_installed
     end
   end
 end

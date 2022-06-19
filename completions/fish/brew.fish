@@ -279,7 +279,7 @@ __fish_brew_complete_arg '-S' -l cask -d 'Search online and locally for casks'
 __fish_brew_complete_arg '-S' -l closed -d 'Search for only closed GitHub pull requests'
 __fish_brew_complete_arg '-S' -l debian -d 'Search for text in the given database'
 __fish_brew_complete_arg '-S' -l debug -d 'Display any debugging information'
-__fish_brew_complete_arg '-S' -l desc -d 'Search for formulae with a description matching text and casks with a name matching text'
+__fish_brew_complete_arg '-S' -l desc -d 'Search for formulae with a description matching text and casks with a name or description matching text'
 __fish_brew_complete_arg '-S' -l fedora -d 'Search for text in the given database'
 __fish_brew_complete_arg '-S' -l fink -d 'Search for text in the given database'
 __fish_brew_complete_arg '-S' -l formula -d 'Search online and locally for formulae'
@@ -337,6 +337,7 @@ __fish_brew_complete_arg 'audit' -l fix -d 'Fix style violations automatically u
 __fish_brew_complete_arg 'audit' -l formula -d 'Treat all named arguments as formulae'
 __fish_brew_complete_arg 'audit' -l git -d 'Run additional, slower style checks that navigate the Git repository'
 __fish_brew_complete_arg 'audit' -l help -d 'Show this message'
+__fish_brew_complete_arg 'audit' -l installed -d 'Only check formulae and casks that are currently installed'
 __fish_brew_complete_arg 'audit' -l new -d 'Run various additional style checks to determine if a new formula or cask is eligible for Homebrew. This should be used when creating new formula and implies `--strict` and `--online`'
 __fish_brew_complete_arg 'audit' -l no-appcast -d 'Audit the appcast'
 __fish_brew_complete_arg 'audit' -l online -d 'Run additional, slower style checks that require a network connection'
@@ -431,6 +432,9 @@ __fish_brew_complete_arg 'bump-formula-pr' -l no-audit -d 'Don\'t run `brew audi
 __fish_brew_complete_arg 'bump-formula-pr' -l no-browse -d 'Print the pull request URL instead of opening in a browser'
 __fish_brew_complete_arg 'bump-formula-pr' -l no-fork -d 'Don\'t try to fork the repository'
 __fish_brew_complete_arg 'bump-formula-pr' -l online -d 'Run `brew audit --online` before opening the PR'
+__fish_brew_complete_arg 'bump-formula-pr' -l python-exclude-packages -d 'Exclude these Python packages when finding resources'
+__fish_brew_complete_arg 'bump-formula-pr' -l python-extra-packages -d 'Include these additional Python packages when finding resources'
+__fish_brew_complete_arg 'bump-formula-pr' -l python-package-name -d 'Use the specified package-name when finding Python resources for formula. If no package name is specified, it will be inferred from the formula\'s stable URL'
 __fish_brew_complete_arg 'bump-formula-pr' -l quiet -d 'Make some output more quiet'
 __fish_brew_complete_arg 'bump-formula-pr' -l revision -d 'Specify the new commit revision corresponding to the specified git tag or specified version'
 __fish_brew_complete_arg 'bump-formula-pr' -l sha256 -d 'Specify the SHA-256 checksum of the new download'
@@ -577,14 +581,17 @@ __fish_brew_complete_arg 'deps; and not __fish_seen_argument -l formula -l formu
 
 
 __fish_brew_complete_cmd 'desc' 'Display formula\'s name and one-line description'
+__fish_brew_complete_arg 'desc' -l cask -d 'Treat all named arguments as casks'
 __fish_brew_complete_arg 'desc' -l debug -d 'Display any debugging information'
 __fish_brew_complete_arg 'desc' -l description -d 'Search just descriptions for text. If text is flanked by slashes, it is interpreted as a regular expression'
+__fish_brew_complete_arg 'desc' -l formula -d 'Treat all named arguments as formulae'
 __fish_brew_complete_arg 'desc' -l help -d 'Show this message'
 __fish_brew_complete_arg 'desc' -l name -d 'Search just names for text. If text is flanked by slashes, it is interpreted as a regular expression'
 __fish_brew_complete_arg 'desc' -l quiet -d 'Make some output more quiet'
 __fish_brew_complete_arg 'desc' -l search -d 'Search both names and descriptions for text. If text is flanked by slashes, it is interpreted as a regular expression'
 __fish_brew_complete_arg 'desc' -l verbose -d 'Make some output more verbose'
-__fish_brew_complete_arg 'desc' -a '(__fish_brew_suggest_formulae_all)'
+__fish_brew_complete_arg 'desc; and not __fish_seen_argument -l cask -l casks' -a '(__fish_brew_suggest_formulae_all)'
+__fish_brew_complete_arg 'desc; and not __fish_seen_argument -l formula -l formulae' -a '(__fish_brew_suggest_casks_all)'
 
 
 __fish_brew_complete_cmd 'developer' 'Control Homebrew\'s developer mode'
@@ -799,6 +806,7 @@ __fish_brew_complete_arg 'instal' -l skip-cask-deps -d 'Skip installing cask dep
 __fish_brew_complete_arg 'instal' -l verbose -d 'Print the verification and postinstall steps'
 __fish_brew_complete_arg 'instal' -l vst-plugindir -d 'Target location for VST Plugins (default: `~/Library/Audio/Plug-Ins/VST`)'
 __fish_brew_complete_arg 'instal' -l vst3-plugindir -d 'Target location for VST3 Plugins (default: `~/Library/Audio/Plug-Ins/VST3`)'
+__fish_brew_complete_arg 'instal' -l zap -d 'For use with `brew reinstall --cask`. Remove all files associated with a cask. *May remove files which are shared between applications.*'
 __fish_brew_complete_arg 'instal; and not __fish_seen_argument -l cask -l casks' -a '(__fish_brew_suggest_formulae_all)'
 __fish_brew_complete_arg 'instal; and not __fish_seen_argument -l formula -l formulae' -a '(__fish_brew_suggest_casks_all)'
 
@@ -847,6 +855,7 @@ __fish_brew_complete_arg 'install' -l skip-cask-deps -d 'Skip installing cask de
 __fish_brew_complete_arg 'install' -l verbose -d 'Print the verification and postinstall steps'
 __fish_brew_complete_arg 'install' -l vst-plugindir -d 'Target location for VST Plugins (default: `~/Library/Audio/Plug-Ins/VST`)'
 __fish_brew_complete_arg 'install' -l vst3-plugindir -d 'Target location for VST3 Plugins (default: `~/Library/Audio/Plug-Ins/VST3`)'
+__fish_brew_complete_arg 'install' -l zap -d 'For use with `brew reinstall --cask`. Remove all files associated with a cask. *May remove files which are shared between applications.*'
 __fish_brew_complete_arg 'install; and not __fish_seen_argument -l cask -l casks' -a '(__fish_brew_suggest_formulae_all)'
 __fish_brew_complete_arg 'install; and not __fish_seen_argument -l formula -l formulae' -a '(__fish_brew_suggest_casks_all)'
 
@@ -1076,6 +1085,7 @@ __fish_brew_complete_arg 'pr-automerge' -l verbose -d 'Make some output more ver
 __fish_brew_complete_arg 'pr-automerge' -l with-label -d 'Pull requests must have this label'
 __fish_brew_complete_arg 'pr-automerge' -l without-approval -d 'Pull requests do not require approval to be merged'
 __fish_brew_complete_arg 'pr-automerge' -l without-labels -d 'Pull requests must not have these labels (default: `do not merge`, `new formula`, `automerge-skip`)'
+__fish_brew_complete_arg 'pr-automerge' -l workflow -d 'Workflow file to use with `brew pr-publish`'
 
 
 __fish_brew_complete_cmd 'pr-publish' 'Publish bottles for a pull request with GitHub Actions'
@@ -1183,6 +1193,7 @@ __fish_brew_complete_arg 'reinstall' -l skip-cask-deps -d 'Skip installing cask 
 __fish_brew_complete_arg 'reinstall' -l verbose -d 'Print the verification and postinstall steps'
 __fish_brew_complete_arg 'reinstall' -l vst-plugindir -d 'Target location for VST Plugins (default: `~/Library/Audio/Plug-Ins/VST`)'
 __fish_brew_complete_arg 'reinstall' -l vst3-plugindir -d 'Target location for VST3 Plugins (default: `~/Library/Audio/Plug-Ins/VST3`)'
+__fish_brew_complete_arg 'reinstall' -l zap -d 'For use with `brew reinstall --cask`. Remove all files associated with a cask. *May remove files which are shared between applications.*'
 __fish_brew_complete_arg 'reinstall; and not __fish_seen_argument -l cask -l casks' -a '(__fish_brew_suggest_formulae_all)'
 __fish_brew_complete_arg 'reinstall; and not __fish_seen_argument -l formula -l formulae' -a '(__fish_brew_suggest_casks_all)'
 
@@ -1239,7 +1250,7 @@ __fish_brew_complete_arg 'search' -l cask -d 'Search online and locally for cask
 __fish_brew_complete_arg 'search' -l closed -d 'Search for only closed GitHub pull requests'
 __fish_brew_complete_arg 'search' -l debian -d 'Search for text in the given database'
 __fish_brew_complete_arg 'search' -l debug -d 'Display any debugging information'
-__fish_brew_complete_arg 'search' -l desc -d 'Search for formulae with a description matching text and casks with a name matching text'
+__fish_brew_complete_arg 'search' -l desc -d 'Search for formulae with a description matching text and casks with a name or description matching text'
 __fish_brew_complete_arg 'search' -l fedora -d 'Search for text in the given database'
 __fish_brew_complete_arg 'search' -l fink -d 'Search for text in the given database'
 __fish_brew_complete_arg 'search' -l formula -d 'Search online and locally for formulae'
@@ -1293,6 +1304,7 @@ __fish_brew_complete_arg 'tap' -l debug -d 'Display any debugging information'
 __fish_brew_complete_arg 'tap' -l force-auto-update -d 'Auto-update tap even if it is not hosted on GitHub. By default, only taps hosted on GitHub are auto-updated (for performance reasons)'
 __fish_brew_complete_arg 'tap' -l help -d 'Show this message'
 __fish_brew_complete_arg 'tap' -l list-pinned -d 'List all pinned taps'
+__fish_brew_complete_arg 'tap' -l no-force-auto-update -d 'Auto-update tap even if it is not hosted on GitHub. By default, only taps hosted on GitHub are auto-updated (for performance reasons)'
 __fish_brew_complete_arg 'tap' -l quiet -d 'Make some output more quiet'
 __fish_brew_complete_arg 'tap' -l repair -d 'Migrate tapped formulae from symlink-based to directory-based structure'
 __fish_brew_complete_arg 'tap' -l verbose -d 'Make some output more verbose'
@@ -1322,6 +1334,7 @@ __fish_brew_complete_arg 'tap-new' -a '(__fish_brew_suggest_taps_installed)'
 
 
 __fish_brew_complete_cmd 'tc' 'Check for typechecking errors using Sorbet'
+__fish_brew_complete_arg 'tc' -l all -d 'Regenerate all RBI files rather than just updated gems'
 __fish_brew_complete_arg 'tc' -l debug -d 'Display any debugging information'
 __fish_brew_complete_arg 'tc' -l dir -d 'Typecheck all files in a specific directory'
 __fish_brew_complete_arg 'tc' -l fail-if-not-changed -d 'Return a failing status code if all gems are up to date and gem definitions do not need a tapioca update'
@@ -1349,6 +1362,7 @@ __fish_brew_complete_arg 'test' -a '(__fish_brew_suggest_formulae_installed)'
 
 __fish_brew_complete_cmd 'tests' 'Run Homebrew\'s unit and integration tests'
 __fish_brew_complete_arg 'tests' -l byebug -d 'Enable debugging using byebug'
+__fish_brew_complete_arg 'tests' -l changed -d 'Only runs tests on files that were changed from the master branch'
 __fish_brew_complete_arg 'tests' -l coverage -d 'Generate code coverage reports'
 __fish_brew_complete_arg 'tests' -l debug -d 'Display any debugging information'
 __fish_brew_complete_arg 'tests' -l generic -d 'Run only OS-agnostic tests'
@@ -1362,6 +1376,7 @@ __fish_brew_complete_arg 'tests' -l verbose -d 'Make some output more verbose'
 
 
 __fish_brew_complete_cmd 'typecheck' 'Check for typechecking errors using Sorbet'
+__fish_brew_complete_arg 'typecheck' -l all -d 'Regenerate all RBI files rather than just updated gems'
 __fish_brew_complete_arg 'typecheck' -l debug -d 'Display any debugging information'
 __fish_brew_complete_arg 'typecheck' -l dir -d 'Typecheck all files in a specific directory'
 __fish_brew_complete_arg 'typecheck' -l fail-if-not-changed -d 'Return a failing status code if all gems are up to date and gem definitions do not need a tapioca update'
@@ -1376,12 +1391,12 @@ __fish_brew_complete_arg 'typecheck' -l verbose -d 'Make some output more verbos
 
 
 __fish_brew_complete_cmd 'unbottled' 'Show the unbottled dependents of formulae'
+__fish_brew_complete_arg 'unbottled' -l all -d 'Print the number of unbottled and total formulae'
 __fish_brew_complete_arg 'unbottled' -l debug -d 'Display any debugging information'
 __fish_brew_complete_arg 'unbottled' -l dependents -d 'Skip getting analytics data and sort by number of dependents instead'
 __fish_brew_complete_arg 'unbottled' -l help -d 'Show this message'
 __fish_brew_complete_arg 'unbottled' -l quiet -d 'Make some output more quiet'
 __fish_brew_complete_arg 'unbottled' -l tag -d 'Use the specified bottle tag (e.g. `big_sur`) instead of the current OS'
-__fish_brew_complete_arg 'unbottled' -l total -d 'Print the number of unbottled and total formulae'
 __fish_brew_complete_arg 'unbottled' -l verbose -d 'Make some output more verbose'
 __fish_brew_complete_arg 'unbottled' -a '(__fish_brew_suggest_formulae_all)'
 
@@ -1453,20 +1468,22 @@ __fish_brew_complete_arg 'untap' -a '(__fish_brew_suggest_taps_installed)'
 
 
 __fish_brew_complete_cmd 'up' 'Fetch the newest version of Homebrew and all formulae from GitHub using `git`(1) and perform any necessary migrations'
+__fish_brew_complete_arg 'up' -l auto-update -d 'Run on auto-updates (e.g. before `brew install`). Skips some slower steps'
 __fish_brew_complete_arg 'up' -l debug -d 'Display a trace of all shell commands as they are executed'
 __fish_brew_complete_arg 'up' -l force -d 'Always do a slower, full update check (even if unnecessary)'
 __fish_brew_complete_arg 'up' -l help -d 'Show this message'
 __fish_brew_complete_arg 'up' -l merge -d 'Use `git merge` to apply updates (rather than `git rebase`)'
-__fish_brew_complete_arg 'up' -l preinstall -d 'Run on auto-updates (e.g. before `brew install`). Skips some slower steps'
+__fish_brew_complete_arg 'up' -l quiet -d 'Make some output more quiet'
 __fish_brew_complete_arg 'up' -l verbose -d 'Print the directories checked and `git` operations performed'
 
 
 __fish_brew_complete_cmd 'update' 'Fetch the newest version of Homebrew and all formulae from GitHub using `git`(1) and perform any necessary migrations'
+__fish_brew_complete_arg 'update' -l auto-update -d 'Run on auto-updates (e.g. before `brew install`). Skips some slower steps'
 __fish_brew_complete_arg 'update' -l debug -d 'Display a trace of all shell commands as they are executed'
 __fish_brew_complete_arg 'update' -l force -d 'Always do a slower, full update check (even if unnecessary)'
 __fish_brew_complete_arg 'update' -l help -d 'Show this message'
 __fish_brew_complete_arg 'update' -l merge -d 'Use `git merge` to apply updates (rather than `git rebase`)'
-__fish_brew_complete_arg 'update' -l preinstall -d 'Run on auto-updates (e.g. before `brew install`). Skips some slower steps'
+__fish_brew_complete_arg 'update' -l quiet -d 'Make some output more quiet'
 __fish_brew_complete_arg 'update' -l verbose -d 'Print the directories checked and `git` operations performed'
 
 
@@ -1501,10 +1518,10 @@ __fish_brew_complete_arg 'update-python-resources' -a '(__fish_brew_suggest_form
 
 
 __fish_brew_complete_cmd 'update-report' 'The Ruby implementation of `brew update`'
+__fish_brew_complete_arg 'update-report' -l auto-update -d 'Run in \'auto-update\' mode (faster, less output)'
 __fish_brew_complete_arg 'update-report' -l debug -d 'Display any debugging information'
 __fish_brew_complete_arg 'update-report' -l force -d 'Treat installed and updated formulae as if they are from the same taps and migrate them anyway'
 __fish_brew_complete_arg 'update-report' -l help -d 'Show this message'
-__fish_brew_complete_arg 'update-report' -l preinstall -d 'Run in \'auto-update\' mode (faster, less output)'
 __fish_brew_complete_arg 'update-report' -l quiet -d 'Make some output more quiet'
 __fish_brew_complete_arg 'update-report' -l verbose -d 'Make some output more verbose'
 

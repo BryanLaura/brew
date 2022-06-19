@@ -142,8 +142,6 @@ class Tap
   # The remote repository name of this {Tap}.
   # e.g. `user/homebrew-repo`
   def remote_repo
-    raise TapUnavailableError, name unless installed?
-
     return unless remote
 
     @remote_repo ||= remote.delete_prefix("https://github.com/")
@@ -276,7 +274,11 @@ class Tap
       end
 
       unless force_auto_update.nil?
-        config["forceautoupdate"] = force_auto_update
+        if force_auto_update
+          config["forceautoupdate"] = force_auto_update
+        elsif config["forceautoupdate"] == "true"
+          config.delete("forceautoupdate")
+        end
         return
       end
 
@@ -304,6 +306,8 @@ class Tap
 
     begin
       safe_system "git", *args
+      # TODO: 3.6.0: consider if we want to actually read all contents of tap or odeprecate.
+
       if !Readall.valid_tap?(self, aliases: true) && !Homebrew::EnvConfig.developer?
         raise "Cannot tap #{name}: invalid syntax in tap!"
       end
@@ -328,6 +332,10 @@ class Tap
       DescriptionCacheStore.new(db)
                            .update_from_formula_names!(formula_names)
     end
+    CacheStoreDatabase.use(:cask_descriptions) do |db|
+      CaskDescriptionCacheStore.new(db)
+                               .update_from_cask_tokens!(cask_tokens)
+    end
 
     if official?
       untapped = self.class.untapped_official_taps
@@ -343,6 +351,10 @@ class Tap
     return if clone_target
     return unless private?
     return if quiet
+
+    path.cd do
+      return if Utils.popen_read("git", "config", "--get", "credential.helper").present?
+    end
 
     $stderr.puts <<~EOS
       It looks like you tapped a private repository. To avoid entering your
@@ -408,6 +420,10 @@ class Tap
     CacheStoreDatabase.use(:descriptions) do |db|
       DescriptionCacheStore.new(db)
                            .delete_from_formula_names!(formula_names)
+    end
+    CacheStoreDatabase.use(:cask_descriptions) do |db|
+      CaskDescriptionCacheStore.new(db)
+                               .delete_from_cask_tokens!(cask_tokens)
     end
     Utils::Link.unlink_manpages(path)
     Utils::Link.unlink_completions(path)
@@ -777,6 +793,12 @@ class CoreTap < Tap
     safe_system HOMEBREW_BREW_FILE, "tap", instance.name
   end
 
+  def remote
+    super if installed? || !Homebrew::EnvConfig.install_from_api?
+
+    Homebrew::EnvConfig.core_git_remote
+  end
+
   # CoreTap never allows shallow clones (on request from GitHub).
   def install(quiet: false, clone_target: nil, force_auto_update: nil, custom_remote: false)
     remote = Homebrew::EnvConfig.core_git_remote # set by HOMEBREW_CORE_GIT_REMOTE
@@ -917,6 +939,13 @@ class TapConfig
     return unless Utils::Git.available?
 
     Homebrew::Settings.write key, value.to_s, repo: tap.path
+  end
+
+  def delete(key)
+    return unless tap.git?
+    return unless Utils::Git.available?
+
+    Homebrew::Settings.delete key, repo: tap.path
   end
 end
 

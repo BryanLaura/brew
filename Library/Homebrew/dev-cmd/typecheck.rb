@@ -20,6 +20,9 @@ module Homebrew
              description: "Silence all non-critical errors."
       switch "--update",
              description: "Update RBI files."
+      switch "--all",
+             depends_on:  "--update",
+             description: "Regenerate all RBI files rather than just updated gems."
       switch "--suggest-typed",
              depends_on:  "--update",
              description: "Try upgrading `typed` sigils."
@@ -51,13 +54,19 @@ module Homebrew
         excluded_gems = [
           "did_you_mean", # RBI file is already provided by Sorbet
           "webrobots", # RBI file is bugged
+          "sorbet-static-and-runtime", # Unnecessary RBI - remove this entry with Tapioca 0.8
         ]
+        typed_overrides = [
+          "msgpack:false", # Investigate removing this with Tapioca 0.8
+        ]
+        tapioca_args = ["--exclude", *excluded_gems, "--typed-overrides", *typed_overrides]
+        tapioca_args << "--all" if args.all?
 
         ohai "Updating Tapioca RBI files..."
-        system "bundle", "exec", "tapioca", "gem", "--exclude", *excluded_gems
-        system "bundle", "exec", "parlour"
-        system "bundle", "exec", "srb", "rbi", "hidden-definitions"
-        system "bundle", "exec", "srb", "rbi", "todo"
+        safe_system "bundle", "exec", "tapioca", "gem", *tapioca_args
+        safe_system "bundle", "exec", "parlour"
+        safe_system "bundle", "exec", "srb", "rbi", "hidden-definitions"
+        safe_system "bundle", "exec", "srb", "rbi", "todo"
 
         if args.suggest_typed?
           result = system_command(

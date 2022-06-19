@@ -26,11 +26,15 @@ module Homebrew
                           "official external commands."
       switch "--byebug",
              description: "Enable debugging using byebug."
+      switch "--changed",
+             description: "Only runs tests on files that were changed from the master branch."
       flag   "--only=",
              description: "Run only <test_script>`_spec.rb`. Appending `:`<line_number> will start at a "\
                           "specific line."
       flag   "--seed=",
              description: "Randomise tests with the specified <value> instead of a random seed."
+
+      conflicts "--changed", "--only"
 
       named_args :none
     end
@@ -53,15 +57,32 @@ module Homebrew
                                 reason: "reporting test flakiness")
     end
 
-    ENV["BUILDPULSE_ACCESS_KEY_ID"] = ENV["HOMEBREW_BUILDPULSE_ACCESS_KEY_ID"]
-    ENV["BUILDPULSE_SECRET_ACCESS_KEY"] = ENV["HOMEBREW_BUILDPULSE_SECRET_ACCESS_KEY"]
+    ENV["BUILDPULSE_ACCESS_KEY_ID"] = ENV.fetch("HOMEBREW_BUILDPULSE_ACCESS_KEY_ID")
+    ENV["BUILDPULSE_SECRET_ACCESS_KEY"] = ENV.fetch("HOMEBREW_BUILDPULSE_SECRET_ACCESS_KEY")
 
     ohai "Sending test results to BuildPulse"
 
     safe_system Formula["buildpulse-test-reporter"].opt_bin/"buildpulse-test-reporter",
                 "submit", "#{HOMEBREW_LIBRARY_PATH}/test/junit",
-                "--account-id", ENV["HOMEBREW_BUILDPULSE_ACCOUNT_ID"],
-                "--repository-id", ENV["HOMEBREW_BUILDPULSE_REPOSITORY_ID"]
+                "--account-id", ENV.fetch("HOMEBREW_BUILDPULSE_ACCOUNT_ID"),
+                "--repository-id", ENV.fetch("HOMEBREW_BUILDPULSE_REPOSITORY_ID")
+  end
+
+  def changed_test_files
+    changed_files = Utils.popen_read("git", "diff", "--name-only", "master")
+
+    raise UsageError, "No files have been changed from the master branch!" if changed_files.blank?
+
+    filestub_regex = %r{Library/Homebrew/([\w/-]+).rb}
+    changed_files.scan(filestub_regex).map(&:last).map do |filestub|
+      if filestub.start_with?("test/")
+        # Only run tests on *_spec.rb files in test/ folder
+        filestub.end_with?("_spec") ? Pathname("#{filestub}.rb") : nil
+      else
+        # For all other changed .rb files guess the associated test file name
+        Pathname("test/#{filestub}_spec.rb")
+      end
+    end.compact.select(&:exist?)
   end
 
   def tests
@@ -124,8 +145,19 @@ module Homebrew
           parallel = false
           ["test/#{test_name}_spec.rb:#{line}"]
         end
+      elsif args.changed?
+        changed_test_files
       else
         Dir.glob("test/**/*_spec.rb")
+      end
+
+      if files.blank?
+        raise UsageError, "The --only= argument requires a valid file or folder name!" if args.only
+
+        if args.changed?
+          opoo "No tests are directly associated with the changed files!"
+          return
+        end
       end
 
       parallel_rspec_log_name = "parallel_runtime_rspec"
@@ -180,7 +212,7 @@ module Homebrew
       ENV["HOMEBREW_TESTS_GEM_USER_DIR"] = gem_user_dir
 
       # Let `bundle` in PATH find its gem.
-      ENV["GEM_PATH"] = "#{ENV["GEM_PATH"]}:#{gem_user_dir}"
+      ENV["GEM_PATH"] = "#{ENV.fetch("GEM_PATH")}:#{gem_user_dir}"
 
       # Submit test flakiness information using BuildPulse
       # BUILDPULSE used in spec_helper.rb

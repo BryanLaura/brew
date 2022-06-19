@@ -6,7 +6,6 @@ require "cask/config"
 require "cask/dsl"
 require "cask/metadata"
 require "searchable"
-require "api"
 
 module Cask
   # An instance of a cask.
@@ -20,6 +19,8 @@ module Cask
     include Metadata
 
     attr_reader :token, :sourcefile_path, :source, :config, :default_config
+
+    attr_accessor :download
 
     def self.all
       Tap.flat_map(&:cask_files).map do |f|
@@ -127,6 +128,30 @@ module Cask
       metadata_main_container_path/"config.json"
     end
 
+    def checksumable?
+      DownloadStrategyDetector.detect(url.to_s, url.using) <= AbstractFileDownloadStrategy
+    end
+
+    def download_sha_path
+      metadata_main_container_path/"LATEST_DOWNLOAD_SHA256"
+    end
+
+    def new_download_sha
+      require "cask/installer"
+
+      # Call checksumable? before hashing
+      @new_download_sha ||= Installer.new(self, verify_download_integrity: false)
+                                     .download(quiet: true)
+                                     .instance_eval { |x| Digest::SHA256.file(x).hexdigest }
+    end
+
+    def outdated_download_sha?
+      return true unless checksumable?
+
+      current_download_sha = download_sha_path.read if download_sha_path.exist?
+      current_download_sha.blank? || current_download_sha != new_download_sha
+    end
+
     def caskroom_path
       @caskroom_path ||= Caskroom.path.join(token)
     end
@@ -140,29 +165,22 @@ module Cask
       # special case: tap version is not available
       return [] if version.nil?
 
-      if greedy || (greedy_latest && greedy_auto_updates) || (greedy_auto_updates && auto_updates)
-        return versions if version.latest?
-      elsif greedy_latest && version.latest?
-        return versions
-      elsif auto_updates
-        return []
-      end
+      if version.latest?
+        return versions if (greedy || greedy_latest) && outdated_download_sha?
 
-      latest_version = if Homebrew::EnvConfig.install_from_api? &&
-                          (latest_cask_version = Homebrew::API::Versions.latest_cask_version(token))
-        DSL::Version.new latest_cask_version.to_s
-      else
-        version
+        return []
+      elsif auto_updates && !greedy && !greedy_auto_updates
+        return []
       end
 
       installed = versions
       current   = installed.last
 
       # not outdated unless there is a different version on tap
-      return [] if current == latest_version
+      return [] if current == version
 
       # collect all installed versions that are different than tap version and return them
-      installed.reject { |v| v == latest_version }
+      installed.reject { |v| v == version }
     end
 
     def outdated_info(greedy, verbose, json, greedy_latest, greedy_auto_updates)
@@ -223,7 +241,7 @@ module Cask
 
     def to_h_string_gsubs(string)
       string.to_s
-            .gsub(ENV["HOME"], "$HOME")
+            .gsub(Dir.home, "$HOME")
             .gsub(HOMEBREW_PREFIX, "$(brew --prefix)")
     end
 

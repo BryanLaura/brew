@@ -12,7 +12,14 @@ module Cask
 
     sig { returns(Pathname) }
     def self.path
-      @path ||= HOMEBREW_PREFIX.join("Caskroom")
+      @path ||= HOMEBREW_PREFIX/"Caskroom"
+    end
+
+    sig { returns(T::Boolean) }
+    def self.any_casks_installed?
+      return false unless path.exist?
+
+      path.children.select(&:directory?).any?
     end
 
     sig { void }
@@ -36,17 +43,23 @@ module Cask
     def self.casks(config: nil)
       return [] unless path.exist?
 
-      Pathname.glob(path.join("*")).sort.select(&:directory?).map do |path|
+      path.children.select(&:directory?).sort.map do |path|
         token = path.basename.to_s
 
-        if (tap_path = CaskLoader.tap_paths(token).first)
-          CaskLoader::FromTapPathLoader.new(tap_path).load(config: config)
-        elsif (caskroom_path = Pathname.glob(path.join(".metadata/*/*/*/*.rb")).first)
-          CaskLoader::FromPathLoader.new(caskroom_path).load(config: config)
-        else
-          CaskLoader.load(token, config: config)
+        begin
+          if (tap_path = CaskLoader.tap_paths(token).first)
+            CaskLoader::FromTapPathLoader.new(tap_path).load(config: config)
+          elsif (caskroom_path = Pathname.glob(path.join(".metadata/*/*/*/*.rb")).first) &&
+                (!Homebrew::EnvConfig.install_from_api? || !Homebrew::API::CaskSource.available?(token))
+            CaskLoader::FromPathLoader.new(caskroom_path).load(config: config)
+          else
+            CaskLoader.load(token, config: config)
+          end
+        rescue CaskUnavailableError
+          # Don't blow up because of a single unavailable cask.
+          nil
         end
-      end
+      end.compact
     end
   end
 end

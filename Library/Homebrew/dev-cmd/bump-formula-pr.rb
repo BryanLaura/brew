@@ -34,6 +34,9 @@ module Homebrew
       EOS
       switch "-n", "--dry-run",
              description: "Print what would be done rather than doing it."
+      switch "--all",
+             description: "Read all formulae if necessary to determine URL.",
+             hidden:      true
       switch "--write-only",
              description: "Make the expected file modifications without taking any Git actions."
       switch "--write", hidden: true
@@ -75,12 +78,20 @@ module Homebrew
                           "or specified <version>."
       switch "-f", "--force",
              description: "Ignore duplicate open PRs. Remove all mirrors if `--mirror` was not specified."
+      flag   "--python-package-name=",
+             description: "Use the specified <package-name> when finding Python resources for <formula>. "\
+                          "If no package name is specified, it will be inferred from the formula's stable URL."
+      comma_array "--python-extra-packages=",
+                  description: "Include these additional Python packages when finding resources."
+      comma_array "--python-exclude-packages=",
+                  description: "Exclude these Python packages when finding resources."
 
       conflicts "--dry-run", "--write-only"
       conflicts "--dry-run", "--write"
       conflicts "--no-audit", "--strict"
       conflicts "--no-audit", "--online"
       conflicts "--url", "--tag"
+      conflicts "--installed", "--all"
 
       named_args :formula, max: 1
     end
@@ -89,7 +100,7 @@ module Homebrew
   def bump_formula_pr
     args = bump_formula_pr_args.parse
 
-    odeprecated "`brew bump-formula-pr --write`", "`brew bump-formula-pr --write-only`" if args.write?
+    odisabled "`brew bump-formula-pr --write`", "`brew bump-formula-pr --write-only`" if args.write?
 
     if args.revision.present? && args.tag.nil? && args.version.nil?
       raise UsageError, "`--revision` must be passed with either `--tag` or `--version`!"
@@ -97,7 +108,7 @@ module Homebrew
 
     # As this command is simplifying user-run commands then let's just use a
     # user path, too.
-    ENV["PATH"] = ENV["HOMEBREW_PATH"]
+    ENV["PATH"] = PATH.new(ORIGINAL_PATHS).to_s
 
     # Use the user's browser, too.
     ENV["BROWSER"] = Homebrew::EnvConfig.browser
@@ -325,8 +336,13 @@ module Homebrew
     end
 
     unless args.dry_run?
-      resources_checked = PyPI.update_python_resources! formula, version: new_formula_version,
-                                                        silent: args.quiet?, ignore_non_pypi_packages: true
+      resources_checked = PyPI.update_python_resources! formula,
+                                                        version:                  new_formula_version,
+                                                        package_name:             args.python_package_name,
+                                                        extra_packages:           args.python_extra_packages,
+                                                        exclude_packages:         args.python_exclude_packages,
+                                                        silent:                   args.quiet?,
+                                                        ignore_non_pypi_packages: true
     end
 
     run_audit(formula, alias_rename, old_contents, args: args)
@@ -367,6 +383,7 @@ module Homebrew
     base_url = url_split.first(components_to_match).join("/")
     base_url = /#{Regexp.escape(base_url)}/
     guesses = []
+    # TODO: 3.6.0: odeprecate not specifying args.all?
     Formula.all.each do |f|
       guesses << f if f.stable&.url&.match(base_url)
     end
@@ -378,13 +395,13 @@ module Homebrew
 
   def determine_mirror(url)
     case url
-    when %r{.*ftp.gnu.org/gnu.*}
+    when %r{.*ftp\.gnu\.org/gnu.*}
       url.sub "ftp.gnu.org/gnu", "ftpmirror.gnu.org"
-    when %r{.*download.savannah.gnu.org/*}
+    when %r{.*download\.savannah\.gnu\.org/*}
       url.sub "download.savannah.gnu.org", "download-mirror.savannah.gnu.org"
-    when %r{.*www.apache.org/dyn/closer.lua\?path=.*}
+    when %r{.*www\.apache\.org/dyn/closer\.lua\?path=.*}
       url.sub "www.apache.org/dyn/closer.lua?path=", "archive.apache.org/dist/"
-    when %r{.*mirrors.ocf.berkeley.edu/debian.*}
+    when %r{.*mirrors\.ocf\.berkeley\.edu/debian.*}
       url.sub "mirrors.ocf.berkeley.edu/debian", "mirrorservice.org/sites/ftp.debian.org/debian"
     end
   end

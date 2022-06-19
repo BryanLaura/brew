@@ -45,18 +45,16 @@ module Homebrew
       # the formula and prints a warning unless `only` is specified.
       sig {
         params(
-          only:                    T.nilable(Symbol),
-          ignore_unavailable:      T.nilable(T::Boolean),
-          method:                  T.nilable(Symbol),
-          uniq:                    T::Boolean,
-          prefer_loading_from_api: T::Boolean,
+          only:               T.nilable(Symbol),
+          ignore_unavailable: T.nilable(T::Boolean),
+          method:             T.nilable(Symbol),
+          uniq:               T::Boolean,
         ).returns(T::Array[T.any(Formula, Keg, Cask::Cask)])
       }
-      def to_formulae_and_casks(only: parent&.only_formula_or_cask, ignore_unavailable: nil, method: nil, uniq: true,
-                                prefer_loading_from_api: false)
+      def to_formulae_and_casks(only: parent&.only_formula_or_cask, ignore_unavailable: nil, method: nil, uniq: true)
         @to_formulae_and_casks ||= {}
         @to_formulae_and_casks[only] ||= downcased_unique_named.flat_map do |name|
-          load_formula_or_cask(name, only: only, method: method, prefer_loading_from_api: prefer_loading_from_api)
+          load_formula_or_cask(name, only: only, method: method)
         rescue FormulaUnreadableError, FormulaClassUnavailableError,
                TapFormulaUnreadableError, TapFormulaClassUnavailableError,
                Cask::CaskUnreadableError
@@ -90,15 +88,10 @@ module Homebrew
         end.uniq.freeze
       end
 
-      def load_formula_or_cask(name, only: nil, method: nil, prefer_loading_from_api: false)
+      def load_formula_or_cask(name, only: nil, method: nil)
         unreadable_error = nil
 
         if only != :cask
-          if prefer_loading_from_api && Homebrew::EnvConfig.install_from_api? &&
-             Homebrew::API::Bottle.available?(name)
-            Homebrew::API::Bottle.fetch_bottles(name)
-          end
-
           begin
             formula = case method
             when nil, :factory
@@ -129,14 +122,11 @@ module Homebrew
         end
 
         if only != :formula
-          if prefer_loading_from_api && Homebrew::EnvConfig.install_from_api? &&
-             Homebrew::API::CaskSource.available?(name)
-            contents = Homebrew::API::CaskSource.fetch(name)
-          end
+          want_keg_like_cask = [:latest_kegs, :default_kegs, :kegs].include?(method)
 
           begin
             config = Cask::Config.from_args(@parent) if @cask_options
-            cask = Cask::CaskLoader.load(contents || name, config: config)
+            cask = Cask::CaskLoader.load(name, config: config)
 
             if unreadable_error.present?
               onoe <<~EOS
@@ -146,8 +136,24 @@ module Homebrew
               opoo "Treating #{name} as a cask."
             end
 
+            # If we're trying to get a keg-like Cask, do our best to use the same cask
+            # file that was used for installation, if possible.
+            if want_keg_like_cask && (installed_caskfile = cask.installed_caskfile) && installed_caskfile.exist?
+              cask = Cask::CaskLoader.load(installed_caskfile)
+            end
+
             return cask
-          rescue Cask::CaskUnreadableError => e
+          rescue Cask::CaskUnreadableError, Cask::CaskInvalidError => e
+            # If we're trying to get a keg-like Cask, do our best to handle it
+            # not being readable and return something that can be used.
+            if want_keg_like_cask
+              cask_version = Cask::Cask.new(name, config: config).versions.first
+              cask = Cask::Cask.new(name, config: config) do
+                version cask_version if cask_version
+              end
+              return cask
+            end
+
             # Need to rescue before `CaskUnavailableError` (superclass of this)
             # The cask was found, but there's a problem with its implementation
             unreadable_error ||= e

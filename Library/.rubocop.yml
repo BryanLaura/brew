@@ -95,12 +95,9 @@ Naming/InclusiveLanguage:
         - "ssdb_slave" # Used in formula `ssdb`
         - "var_slave" # Used in formula `ssdb`
         - "patches/13_fix_scope_for_show_slave_status_data.patch" # Used in formula `mytop`
-    blacklist:
-      AllowedRegex:
-        - "--listBlacklist" # Used in formula `xmlsectool`
 
 Naming/MethodName:
-  IgnoredPatterns:
+  AllowedPatterns:
     - '\A(fetch_)?HEAD\?\Z'
 
 # Both styles are used depending on context,
@@ -124,6 +121,14 @@ Style/BarePercentLiterals:
 # Use consistent style for better readability.
 Style/CollectionMethods:
   Enabled: true
+
+# This is quite a large change, so don't enforce this yet for formulae.
+# We should consider doing so in the future, but be aware of the impact on third-party taps.
+Style/FetchEnvVar:
+  Exclude:
+    - "Taps/*/*/*.rb"
+    - "/**/Formula/*.rb"
+    - "**/Formula/*.rb"
 
 # Prefer tokens with type annotations for consistency
 # between formatting numbers and strings.
@@ -239,6 +244,10 @@ Rails/RelativeDateConstant:
 Rails/SafeNavigation:
   Enabled: true
 Rails/SafeNavigationWithBlank:
+  Enabled: true
+Rails/StripHeredoc:
+  Enabled: true
+Rails/ToFormattedS:
   Enabled: true
 
 # Don't allow cops to be disabled in casks and formulae.
@@ -388,7 +397,7 @@ Naming/MethodParameterName:
 Layout/LineLength:
   Max: 118
   # ignore manpage comments and long single-line strings
-  IgnoredPatterns:
+  AllowedPatterns:
     [
       "#: ",
       ' url "',

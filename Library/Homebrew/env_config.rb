@@ -23,7 +23,12 @@ module Homebrew
         description: "Prefix all download URLs, including those for bottles, with this value. " \
                      "For example, `HOMEBREW_ARTIFACT_DOMAIN=http://localhost:8080` will cause a " \
                      "formula with the URL `https://example.com/foo.tar.gz` to instead download from " \
-                     "`http://localhost:8080/example.com/foo.tar.gz`.",
+                     "`http://localhost:8080/https://example.com/foo.tar.gz`. " \
+                     "Bottle URLs however, have their domain replaced with this prefix. " \
+                     "This results in e.g. " \
+                     "`https://ghcr.io/v2/homebrew/core/gettext/manifests/0.21` " \
+                     "to instead be downloaded from " \
+                     "`http://localhost:8080/v2/homebrew/core/gettext/manifests/0.21`",
       },
       HOMEBREW_AUTO_UPDATE_SECS:                 {
         description: "Run `brew update` once every `HOMEBREW_AUTO_UPDATE_SECS` seconds before some commands, " \
@@ -38,6 +43,10 @@ module Homebrew
       HOMEBREW_BAT_CONFIG_PATH:                  {
         description:  "Use this as the `bat` configuration file.",
         default_text: "`$HOME/.config/bat/config`.",
+      },
+      HOMEBREW_BAT_THEME:                        {
+        description:  "Use this as the `bat` theme for syntax highlighting.",
+        default_text: "`$BAT_THEME`.",
       },
       HOMEBREW_BOOTSNAP:                         {
         description: "If set, use Bootsnap to speed up repeated `brew` calls. "\
@@ -98,6 +107,10 @@ module Homebrew
         description: "If set, do not pass `--disable` when invoking `curl`(1), which disables the " \
                      "use of `curlrc`.",
         boolean:     true,
+      },
+      HOMEBREW_CURL_PATH:                        {
+        description: "Linux only: Set this value to a new enough `curl` executable for Homebrew to use.",
+        default:     "curl",
       },
       HOMEBREW_CURL_RETRIES:                     {
         description: "Pass the given retry count to `--retry` when invoking `curl`(1).",
@@ -190,6 +203,10 @@ module Homebrew
       },
       HOMEBREW_GIT_NAME:                         {
         description: "Set the Git author and committer name to this value.",
+      },
+      HOMEBREW_GIT_PATH:                         {
+        description: "Linux only: Set this value to a new enough `git` executable for Homebrew to use.",
+        default:     "git",
       },
       HOMEBREW_INSTALL_BADGE:                    {
         description:  "Print this text before the installation summary of each successful build.",
@@ -325,8 +342,9 @@ module Homebrew
         default_text: "macOS: `/private/tmp`, Linux: `/tmp`.",
         default:      HOMEBREW_DEFAULT_TEMP,
       },
-      HOMEBREW_UPDATE_REPORT_ONLY_INSTALLED:     {
-        description: "If set, `brew update` only lists updates to installed software.",
+      HOMEBREW_UPDATE_REPORT_ALL_FORMULAE:       {
+        description: "If set, `brew update` lists changes to all formulae and cask files rather than only showing " \
+                     "when they are new and not installed or outdated and installed.",
         boolean:     true,
       },
       HOMEBREW_UPDATE_TO_TAG:                    {

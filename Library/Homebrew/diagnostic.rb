@@ -70,7 +70,7 @@ module Homebrew
       end
 
       def user_tilde(path)
-        path.gsub(ENV["HOME"], "~")
+        path.gsub(Dir.home, "~")
       end
 
       sig { returns(String) }
@@ -541,7 +541,7 @@ module Homebrew
       end
 
       def check_git_version
-        minimum_version = ENV["HOMEBREW_MINIMUM_GIT_VERSION"]
+        minimum_version = ENV.fetch("HOMEBREW_MINIMUM_GIT_VERSION")
         return unless Utils::Git.available?
         return if Version.create(Utils::Git.version) >= Version.create(minimum_version)
 
@@ -668,7 +668,7 @@ module Homebrew
       end
 
       def check_tmpdir
-        tmpdir = ENV["TMPDIR"]
+        tmpdir = ENV.fetch("TMPDIR", nil)
         return if tmpdir.nil? || File.directory?(tmpdir)
 
         <<~EOS
@@ -766,7 +766,7 @@ module Homebrew
       end
 
       def check_for_pydistutils_cfg_in_home
-        return unless File.exist? "#{ENV["HOME"]}/.pydistutils.cfg"
+        return unless File.exist? "#{Dir.home}/.pydistutils.cfg"
 
         <<~EOS
           A '.pydistutils.cfg' file was found in $HOME, which may cause Python
@@ -828,7 +828,7 @@ module Homebrew
         cmd_map.reject! { |_cmd_name, cmd_paths| cmd_paths.size == 1 }
         return if cmd_map.empty?
 
-        if ENV["CI"] && cmd_map.keys.length == 1 &&
+        if ENV["CI"].present? && cmd_map.keys.length == 1 &&
            cmd_map.keys.first == "brew-test-bot"
           return
         end
@@ -890,7 +890,7 @@ module Homebrew
             # Formulae installed with HOMEBREW_INSTALL_FROM_API should not count as deleted formulae
             # but may not have a tap listed in their tab
             tap = Tab.for_keg(keg).tap
-            next if (tap.blank? || tap.core_tap?) && Homebrew::API::Bottle.available?(keg.name)
+            next if (tap.blank? || tap.core_tap?) && Homebrew::API::Formula.all_formulae.key?(keg.name)
           end
 
           keg.name
@@ -900,7 +900,7 @@ module Homebrew
 
         <<~EOS
           Some installed kegs have no formulae!
-          This means they were either deleted or installed with `brew diy`.
+          This means they were either deleted or installed manually.
           You should find replacements for the following formulae:
             #{deleted_formulae.join("\n  ")}
         EOS
@@ -1007,7 +1007,7 @@ module Homebrew
         add_info "Cask Environment Variables:", ((locale_variables + environment_variables).sort.each do |var|
           next unless ENV.key?(var)
 
-          var = %Q(#{var}="#{ENV[var]}")
+          var = %Q(#{var}="#{ENV.fetch(var)}")
           user_tilde(var)
         end)
       end
@@ -1048,8 +1048,6 @@ module Homebrew
           "There's no working version of `xattr` on this system."
         when :no_swift
           "Swift is not available on this system."
-        when :no_quarantine
-          "This feature requires the macOS 10.10 SDK or higher."
         else
           "Unknown support status"
         end
